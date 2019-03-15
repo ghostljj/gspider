@@ -9,6 +9,7 @@ import (
 func (s *Spider) PrintReqHeader(key string) {
 	if key == "" {
 		fmt.Println("------------------  S Req 请求 Header | GetReqHeader() map[string][]string")
+		fmt.Println("------------------  Use GetReqHeader() map[string][]string ")
 		for k, v := range s.GetReqHeader() {
 			fmt.Print("        " + k)
 			fmt.Print(" : ")
