@@ -50,14 +50,19 @@ $ go get -u ...
 		fmt.Println("Error=" + err.Error())
 	} else {
 
+		fmt.Println()
+		fmt.Println()
+		fmt.Println()
+		fmt.Println()
 		fmt.Println(strContent)
-		ss.PrintReqHeader("")   //打印 请求 头信息
-		ss.PrintReqPostData()   // 打印 请求 PostData
-		ss.PrintResHeader("")   //打印 响应 头信息
-		ss.PrintResSetCookie()  //打印 响应 头信息SetCookie
-		ss.PrintResUrl()        // 打印 响应 最后的Url
-		ss.PrintCookies(strUrl) // 获取此Url的Cookie
-		ss.PrintResStatusCode() // 打印 响应 状态码
+		ss.PrintReqHeader("")           //打印 请求 头信息
+		ss.PrintReqPostData()           // 打印 请求 PostData
+		ss.PrintResHeader("")           //打印 响应 头信息
+		ss.PrintResSetCookie()          //打印 响应 头信息SetCookie
+		ss.PrintResUrl()                // 打印 响应 最后的Url
+		ss.PrintCookies(ss.GetResUrl()) // 获取 响应 最后的Url 的 Cookie
+		ss.PrintResStatusCode()         // 打印 响应 状态码
+
 	}
 ```
 
