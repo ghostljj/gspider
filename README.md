@@ -10,9 +10,6 @@
 ===============
 
 ## 安装
-
-To start using GJSON, install Go and run `go get`:
-
 ```sh
 $ go get -u ...
 ```
