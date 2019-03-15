@@ -3,6 +3,7 @@ package gspider
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net"
@@ -87,6 +88,21 @@ func (s *Spider) Get(strUrl, refererUrl string, header map[string]string) (strin
 //Post Post方法
 func (s *Spider) Post(strUrl, refererUrl, strPostData string, header map[string]string) (string, error) {
 	return s.Send("POST", strUrl, refererUrl, strPostData, header)
+}
+
+//	contentType := strings.ToLower(s.GetResHeader().Get("Content-Type"))
+func (s *Spider) GetBase64ImageSrc(strUrl, refererUrl string, header map[string]string) (string, error) {
+	strContent, err := s.GetBase64Image(strUrl, refererUrl, header)
+	if err == nil {
+		contentType := s.GetResHeader().Get("Content-Type")
+		strContent = "data:" + contentType + ";base64," + strContent + ""
+	}
+	return strContent, err
+}
+func (s *Spider) GetBase64Image(strUrl, refererUrl string, header map[string]string) (string, error) {
+	strContent, err := s.Send("GET", strUrl, refererUrl, "", header)
+	strContent = base64.StdEncoding.EncodeToString([]byte(strContent))
+	return strContent, err
 }
 
 //Put Put方法
@@ -202,7 +218,18 @@ func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header 
 
 	bodyStr := string(bodyByte) //获取文本
 
-	{ //自动 编码
+	//设置 响应 头信息
+	s.resHeader = httpRes.Header
+	//设置 请求 头信息
+	s.reqHeader = httpRes.Request.Header
+	//设置 响应 后的Url
+	s.resUrl = httpRes.Request.URL.String()
+	//设置响应状态码
+	s.resStatusCode = httpRes.StatusCode
+
+	contentType := strings.ToLower(s.GetResHeader().Get("Content-Type"))
+	if strings.Index(contentType, "image/") <= -1 {
+		//自动/手动 编码
 		var charset string
 		if strings.ToLower(s.Encode) == "auto" {
 			autoEncode, err := chardet.NewTextDetector().DetectBest(bodyByte)
@@ -219,14 +246,6 @@ func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header 
 			}
 		}
 	}
-	//设置 响应 头信息
-	s.resHeader = httpRes.Header
-	//设置 请求 头信息
-	s.reqHeader = httpRes.Request.Header
-	//设置 响应 后的Url
-	s.resUrl = httpRes.Request.URL.String()
-	//设置响应状态码
-	s.resStatusCode = httpRes.StatusCode
 
 	return bodyStr, nil
 }

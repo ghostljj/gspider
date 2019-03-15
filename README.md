@@ -68,4 +68,26 @@ $ go get -u ...
 因为，这就是调试信息，仔细看会发现使用函数哈。<br/>
 打印后慢慢磨控制台，会有惊喜<br/>
 
+```go
+值得注意的是我单独写出RefererUrl,我个人认为，很多网站模拟的时候。是需要看来源的。特别是高级爬虫的时候。麻烦点是麻烦点，安全稳妥。
+
+可以Post 和 Get 或者Send  最后有个 nil  ，这个是map[string]string 请求头的修改，不修改就是nil
+
+还有就是可以获取图像Base64字符串，使用GetBase64Image
+```
+
+设置Cookies
+```go
+    SetCookies(strUrl, "NewKey1=NewValue1;NewKey2=NewValue==99=2;")
+```
+
+清空Cookies
+```go
+     ResetCookie()
+```
+获取Cookies
+```go
+    Cookies(strUrl)
+```
+
 

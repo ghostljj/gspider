@@ -9,7 +9,7 @@ import (
 func (s *Spider) PrintReqHeader(key string) {
 	if key == "" {
 		fmt.Println("------------------  S Req 请求 Header | GetReqHeader() map[string][]string")
-		fmt.Println("------------------  使用 GetReqHeader() map[string][]string ")
+		fmt.Println("------------------  使用 GetReqHeader() http.Header 可以使用 GetReqHeader().Get(\"User-Agent\") ")
 
 		for k, v := range s.GetReqHeader() {
 			fmt.Print("        " + k)
@@ -33,7 +33,7 @@ func (s *Spider) PrintReqPostData() {
 func (s *Spider) PrintResHeader(key string) {
 	if key == "" {
 		fmt.Println("------------------  S Res 响应 Header")
-		fmt.Println("------------------  使用 GetResHeader() map[string][]string ")
+		fmt.Println("------------------  使用 GetResHeader() http.Header 可以使用 GetResHeader().Get(\"Content-Encoding\") ")
 		for k, v := range s.GetResHeader() {
 			fmt.Print("        " + k)
 			fmt.Print(" : ")
