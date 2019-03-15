@@ -59,7 +59,7 @@ type Spider struct {
 	reqPostData string
 }
 
-// NewSpider 初始化一个爬虫
+// NewSpider  初始化一个爬虫
 // spider
 func NewSpider() Spider {
 	s := Spider{}
@@ -212,7 +212,6 @@ func (s *Spider) Send(strMethod, strUrl string, header map[string]string, strPos
 
 	return bodyStr, nil
 }
-
 
 //pedanticReadAll  读取所有字节
 func pedanticReadAll(r io.Reader) (b []byte, err error) {

@@ -9,7 +9,7 @@ import (
 func (s *Spider) PrintReqHeader(key string) {
 	if key == "" {
 		fmt.Println("------------------  S Req 请求 Header | GetReqHeader() map[string][]string")
-		fmt.Println("------------------  Use GetReqHeader() map[string][]string ")
+		fmt.Println("------------------  使用 GetReqHeader() map[string][]string ")
 
 		for k, v := range s.GetReqHeader() {
 			fmt.Print("        " + k)
@@ -32,7 +32,8 @@ func (s *Spider) PrintReqPostData() {
 //PrintResHeader 打印 响应 头信息
 func (s *Spider) PrintResHeader(key string) {
 	if key == "" {
-		fmt.Println("------------------  S Res 响应 Header | GetResHeader() map[string][]string")
+		fmt.Println("------------------  S Res 响应 Header")
+		fmt.Println("------------------  使用 GetResHeader() map[string][]string ")
 		for k, v := range s.GetResHeader() {
 			fmt.Print("        " + k)
 			fmt.Print(" : ")
@@ -47,7 +48,8 @@ func (s *Spider) PrintResHeader(key string) {
 
 //PrintResSetCookie 打印 响应 头的 Set-Cookie
 func (s *Spider) PrintResSetCookie() {
-	fmt.Println("------------------  S Res 响应 Set-Cookie | GetResHeader()[\"Set-Cookie\"]  []string")
+	fmt.Println("------------------  S Res 响应 Set-Cookie ")
+	fmt.Println("------------------  使用 GetResHeader()[\"Set-Cookie\"]  []string ")
 	for _, itemCookie := range s.GetResHeader()["Set-Cookie"] {
 		fmt.Println("        " + itemCookie)
 	}
@@ -64,7 +66,7 @@ func (s *Spider) PrintResUrl() {
 //PrintCookies 打印CookieJar
 func (s *Spider) PrintCookies(strUrl string) {
 	fmt.Println("------------------  S CookieJar  ==> From(" + strUrl + ")")
-	fmt.Println("------------------  USE GetCookiesMap(strUrl string) map[string]string")
+	fmt.Println("------------------  使用 GetCookiesMap(strUrl string) map[string]string")
 	defer func() {
 		fmt.Println("------------------  E CookieJar")
 		fmt.Println("")
