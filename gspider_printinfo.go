@@ -5,7 +5,7 @@ import (
 	"strconv"
 )
 
-//PrintReqHeader 打印 请求 头信息 查看信息用
+//打印 请求 头信息 查看信息用
 func (s *Spider) PrintReqHeader(key string) {
 	if key == "" {
 		fmt.Println("------------------  S Req 请求 Header | GetReqHeader() map[string][]string")
@@ -23,13 +23,13 @@ func (s *Spider) PrintReqHeader(key string) {
 	fmt.Println("")
 }
 
-//PrintReqPostData 打印 请求 Post内容
+//打印 请求 Post内容
 func (s *Spider) PrintReqPostData() {
 	fmt.Println("------------------ Req PostData ==> ( " + s.reqPostData + " )")
 	fmt.Println("")
 }
 
-//PrintResHeader 打印 响应 头信息
+//打印 响应 头信息
 func (s *Spider) PrintResHeader(key string) {
 	if key == "" {
 		fmt.Println("------------------  S Res 响应 Header")
@@ -46,7 +46,7 @@ func (s *Spider) PrintResHeader(key string) {
 	fmt.Println("")
 }
 
-//PrintResSetCookie 打印 响应 头的 Set-Cookie
+//打印 响应 头的 Set-Cookie
 func (s *Spider) PrintResSetCookie() {
 	fmt.Println("------------------  S Res 响应 Set-Cookie ")
 	fmt.Println("------------------  使用 GetResHeader()[\"Set-Cookie\"]  []string ")
@@ -57,13 +57,13 @@ func (s *Spider) PrintResSetCookie() {
 	fmt.Println()
 }
 
-//PrintResUrl 打印最后 响应 URL
+//打印最后 响应 URL
 func (s *Spider) PrintResUrl() {
 	fmt.Println("------------------  Res Url 最后 响应 URL ==> (" + s.resUrl + ") End") // 例如 Content-Encoding
 	fmt.Println("")
 }
 
-//PrintCookies 打印CookieJar
+//打印CookieJar
 func (s *Spider) PrintCookies(strUrl string) {
 	fmt.Println("------------------  S CookieJar  ==> From(" + strUrl + ")")
 	fmt.Println("------------------  使用 GetCookiesMap(strUrl string) map[string]string")
@@ -83,7 +83,7 @@ func (s *Spider) PrintCookies(strUrl string) {
 	return
 }
 
-//PrintResStatusCode 打印 响应 装态码
+//打印 响应 装态码
 func (s *Spider) PrintResStatusCode() {
 	fmt.Println("------------------  Res StatusCode ==> " + strconv.Itoa(s.resStatusCode))
 	fmt.Println("")

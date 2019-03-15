@@ -28,9 +28,9 @@ import (
 type Spider struct {
 	//编码 默认 Auto 中文 GB18030  或 UTF-8
 	Encode string
-	// AllowAutoRedirect 是否重定向
+	// 是否重定向
 	AllowAutoRedirect bool
-	// HttpProxyInfo 设置Http代理 例：http://127.0.0.1:1081
+	// 设置Http代理 例：http://127.0.0.1:1081
 	HttpProxyInfo string
 	//Socks5地址 例：127.0.0.1:7813
 	Socks5Address string
@@ -40,13 +40,13 @@ type Spider struct {
 	Socks5Pass string
 	//Cookie
 	cookieJar http.CookieJar
-	//Timeout 连接超时
+	//连接超时
 	Timeout time.Duration
-	//ReadWriteTimeout 读写超时
+	//读写超时
 	ReadWriteTimeout time.Duration
-	//KeepAliveTimeout 保持连接超时
+	//保持连接超时
 	KeepAliveTimeout time.Duration
-	//headerTemplate Req Header 发送 请求 头
+	//发送 请求 头
 	headerTemplate map[string]string
 	//返回 响应 头信息  map[string][]string  val是[]string
 	resHeader http.Header
@@ -60,8 +60,7 @@ type Spider struct {
 	reqPostData string
 }
 
-// NewSpider  初始化一个爬虫
-// spider
+// NewSpider  初始化一个爬虫Spider
 func NewSpider() Spider {
 	s := Spider{}
 	s.Encode = "Auto"
@@ -80,17 +79,17 @@ func NewSpider() Spider {
 	return s
 }
 
-//Get Get方法
+//Get方法
 func (s *Spider) Get(strUrl, refererUrl string, header map[string]string) (string, error) {
 	return s.Send("GET", strUrl, refererUrl, "", header)
 }
 
-//Post Post方法
+//Post方法
 func (s *Spider) Post(strUrl, refererUrl, strPostData string, header map[string]string) (string, error) {
 	return s.Send("POST", strUrl, refererUrl, strPostData, header)
 }
 
-//	contentType := strings.ToLower(s.GetResHeader().Get("Content-Type"))
+//获取img src 值
 func (s *Spider) GetBase64ImageSrc(strUrl, refererUrl string, header map[string]string) (string, error) {
 	strContent, err := s.GetBase64Image(strUrl, refererUrl, header)
 	if err == nil {
@@ -99,6 +98,8 @@ func (s *Spider) GetBase64ImageSrc(strUrl, refererUrl string, header map[string]
 	}
 	return strContent, err
 }
+
+//获取Base64 字符串
 func (s *Spider) GetBase64Image(strUrl, refererUrl string, header map[string]string) (string, error) {
 	strContent, err := s.Send("GET", strUrl, refererUrl, "", header)
 	strContent = base64.StdEncoding.EncodeToString([]byte(strContent))
@@ -112,7 +113,7 @@ func (s *Spider) Put(strUrl, refererUrl, strPostData string, header map[string]s
 
 // Send 发送请求
 // strMethod GET POST PUT ...
-// strUrl
+// strUrl refererUrl 网址 与 来源网址
 // header  发送头信息
 func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header map[string]string) (string, error) {
 
@@ -250,7 +251,7 @@ func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header 
 	return bodyStr, nil
 }
 
-//pedanticReadAll  读取所有字节
+//读取所有字节
 func pedanticReadAll(r io.Reader) (b []byte, err error) {
 	var bufa [64]byte
 	buf := bufa[:]

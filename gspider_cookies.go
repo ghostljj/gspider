@@ -7,8 +7,7 @@ import (
 	"strings"
 )
 
-// Cookies 获取Cookie
-// strUrl
+//获取Cookie
 func (s *Spider) Cookies(strUrl string) string {
 	if s.cookieJar == nil {
 		return ""
@@ -21,8 +20,7 @@ func (s *Spider) Cookies(strUrl string) string {
 	return str
 }
 
-// CookiesAll 获取本url和主url的cookie
-// strUrl
+// 获取本url和主url的cookie
 func (s *Spider) CookiesAll(strUrl string) string {
 	if s.cookieJar == nil {
 		return ""
@@ -40,7 +38,7 @@ func (s *Spider) CookiesAll(strUrl string) string {
 	return str
 }
 
-// ResetCookie 重置Cookie
+//重置Cookie
 func (s *Spider) ResetCookie() {
 	s.cookieJar, _ = cookiejar.New(nil)
 }
@@ -53,8 +51,7 @@ func (s *Spider) SetCookiesAll(strUrl, strCookie string) {
 	s.SetCookies(strHostUrl, strCookie)
 }
 
-// SetCookies 设置Cookie
-// strUrl strCookie
+//设置Cookie
 func (s *Spider) SetCookies(strUrl, strCookie string) {
 	if s.cookieJar == nil {
 		return
@@ -81,8 +78,7 @@ func (s *Spider) SetCookies(strUrl, strCookie string) {
 	s.cookieJar.SetCookies(URI, addCookies) //这里设置的cookie 会自动合并到cookieJar
 }
 
-// SetCookiesToUrl 把老Url的cookie 导入到新Url的cookie
-// strUrlOld strUrlNew
+// 把老Url的cookie 导入到新Url的cookie
 func (s *Spider) SetCookiesToUrl(strUrlOld, strUrlNew string) {
 	strCookieOld := s.Cookies(strUrlOld)
 	s.SetCookies(strUrlNew, strCookieOld)

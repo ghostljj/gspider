@@ -5,27 +5,27 @@ import (
 	"net/url"
 )
 
-// GetReqHeader 获取 请求 头信息
+//获取 请求 头信息
 func (s *Spider) GetReqHeader() http.Header {
 	return s.reqHeader
 }
 
-// GetResHeader 获取 响应 头信息
+//获取 响应 头信息
 func (s *Spider) GetResHeader() http.Header {
 	return s.resHeader
 }
 
-//GetResUrl 获取 响应 后的Url
+//获取 响应 后的Url
 func (s *Spider) GetResUrl() string {
 	return s.resUrl
 }
 
-//GetResStatusCode  获取 响应 状态码
+//获取 响应 状态码
 func (s *Spider) GetResStatusCode() int {
 	return s.resStatusCode
 }
 
-// GetCookiesMap 获取 cookieJar 的 map[string]strin
+//获取 cookieJar 的 map[string]strin
 func (s *Spider) GetCookiesMap(strUrl string) map[string]string {
 
 	URI, _ := url.Parse(strUrl)
