@@ -5,11 +5,12 @@ import (
 	"strconv"
 )
 
-//PrintReqHeader 打印 请求 头信息 查看信息用的
+//PrintReqHeader 打印 请求 头信息 查看信息用
 func (s *Spider) PrintReqHeader(key string) {
 	if key == "" {
 		fmt.Println("------------------  S Req 请求 Header | GetReqHeader() map[string][]string")
 		fmt.Println("------------------  Use GetReqHeader() map[string][]string ")
+
 		for k, v := range s.GetReqHeader() {
 			fmt.Print("        " + k)
 			fmt.Print(" : ")
