@@ -79,11 +79,26 @@ func NewSpider() Spider {
 	return s
 }
 
+//Get Get方法
+func (s *Spider) Get(strUrl, refererUrl string, header map[string]string) (string, error) {
+	return s.Send("GET", strUrl, refererUrl, "", header)
+}
+
+//Post Post方法
+func (s *Spider) Post(strUrl, refererUrl, strPostData string, header map[string]string) (string, error) {
+	return s.Send("POST", strUrl, refererUrl, strPostData, header)
+}
+
+//Put Put方法
+func (s *Spider) Put(strUrl, refererUrl, strPostData string, header map[string]string) (string, error) {
+	return s.Send("PUT", strUrl, refererUrl, strPostData, header)
+}
+
 // Send 发送请求
 // strMethod GET POST PUT ...
 // strUrl
 // header  发送头信息
-func (s *Spider) Send(strMethod, strUrl string, header map[string]string, strPostData string) (string, error) {
+func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header map[string]string) (string, error) {
 
 	strMethod = strings.ToUpper(strMethod)
 	s.reqPostData = ""
@@ -146,6 +161,9 @@ func (s *Spider) Send(strMethod, strUrl string, header map[string]string, strPos
 		sendHeader := make(map[string]string)
 		if strMethod == "POST" || strMethod == "PUT" {
 			sendHeader["content-type"] = "application/x-www-form-urlencoded; charset=UTF-8"
+		}
+		if len(refererUrl) > 0 {
+			sendHeader["Referer"] = refererUrl
 		}
 		for k, v := range s.headerTemplate {
 			sendHeader[strings.ToLower(k)] = v

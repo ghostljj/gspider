@@ -45,9 +45,10 @@ $ go get -u ...
 	}
 	{ //设置Cookie
 		// ss.SetCookiesAll(strUrl, "NewKey1=NewValue1;NewKey2=NewValue==99=2;")
-	}
-	header := make(map[string]string)
-	strContent, err := ss.Send("GET", strUrl, header, "")
+  }
+
+	strContent, err := ss.Send("GET", strUrl, strUrl, "", nil)
+  // 或者用这个	strContent, err := ss.Get(strUrl, strUrl, nil)
 	if err != nil {
 		fmt.Println("Error=" + err.Error())
 	} else {
