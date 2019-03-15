@@ -72,6 +72,7 @@ $ go get -u ...
 值得注意的是我单独写出RefererUrl,我个人认为，很多网站模拟的时候。是需要看来源的。特别是高级爬虫的时候。麻烦点是麻烦点，安全稳妥。
 
 可以Post 和 Get 或者Send  最后有个 nil  ，这个是map[string]string 请求头的修改，不修改就是nil
+Post 时注意，送给同学们url.QueryEscape 这个函数，用于参数编码，会有用的。Post json请忽略
 
 还有就是可以获取图像Base64字符串，使用GetBase64Image
 ```
