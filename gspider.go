@@ -3,6 +3,7 @@ package gspider
 import (
 	"bytes"
 	"compress/gzip"
+	"crypto/tls"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -173,6 +174,8 @@ func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header 
 		ts.TLSHandshakeTimeout = 10 * time.Second   //限制执行TLS握手所花费的时间
 		ts.ResponseHeaderTimeout = 10 * time.Second //限制读取response header的时间
 		// ts.ExpectContinueTimeout = 1 * time.Second  //限制client在发送包含 Expect: 100-continue 的header到收到继续发送body的response之间的时间等待 POST才可能需要
+
+		ts.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //跳过证书验证
 
 		ts.Dial = (netDialer).Dial
 		if len(s.HttpProxyInfo) > 0 { //http 代理设置

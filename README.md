@@ -94,3 +94,9 @@ Post 时注意，送给同学们url.QueryEscape 这个函数，用于参数编�
 ```
 
 
+题外话：获取 Cookie Json
+可用于Chrome的 EditThisCookie 插件
+当你知道某网站的Cookie时，使用这个可以生成能用EditThisCookie导入Cookie里面。例如一些已登录的网站。
+```go
+    gspider.GetCookieJson(strUrl, strCookie)
+```
