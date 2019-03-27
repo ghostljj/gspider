@@ -141,19 +141,11 @@ func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header 
 
 	s.ClearResReqInfo()
 
-	defer func(s *Spider) (string, error) {
-		if err := recover(); err != nil {
-			s.Err = err.(error)
-			return "", s.Err
-		}
-		return s.Content, nil
-	}(s)
-
 	strMethod = strings.ToUpper(strMethod)
 	s.reqPostData = ""
 	reqURI, err := url.Parse(strUrl)
 	if err != nil {
-		panic(err)
+		return s.Content, err
 	}
 
 	httpClient := &http.Client{}
@@ -161,7 +153,7 @@ func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header 
 	bytesPostData := bytes.NewBuffer([]byte(strPostData))
 	httpReq, err := http.NewRequest(strMethod, reqURI.String(), bytesPostData)
 	if err != nil {
-		panic(err)
+		return s.Content, err
 	}
 
 	ts := &http.Transport{}
@@ -181,7 +173,7 @@ func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header 
 		if len(s.HttpProxyInfo) > 0 { //http 代理设置
 			proxyUrl, err := url.Parse(s.HttpProxyInfo)
 			if err != nil {
-				panic(err)
+				return s.Content, err
 			}
 			ts.Proxy = http.ProxyURL(proxyUrl)
 		}
@@ -195,7 +187,7 @@ func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header 
 				netDialer,
 			)
 			if err != nil {
-				panic(err)
+				return s.Content, err
 			}
 			ts.Dial = (netDialerNew).Dial
 		}
@@ -230,7 +222,7 @@ func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header 
 
 	httpRes, err := httpClient.Do(httpReq)
 	if err != nil {
-		panic(err)
+		return s.Content, err
 	}
 
 	defer httpRes.Body.Close()
@@ -240,7 +232,7 @@ func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header 
 		case "gzip":
 			reader, err = gzip.NewReader(httpRes.Body)
 			if err != nil {
-				panic(err)
+				return s.Content, err
 			}
 		default:
 			reader = httpRes.Body
@@ -248,7 +240,7 @@ func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header 
 	}
 	bodyByte, err := pedanticReadAll(reader)
 	if err != nil {
-		panic(err)
+		return s.Content, err
 	}
 
 	bodyStr := string(bodyByte) //获取文本
