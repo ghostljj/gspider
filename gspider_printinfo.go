@@ -57,6 +57,12 @@ func (s *Spider) PrintResSetCookie() {
 	fmt.Println()
 }
 
+//打印 请求 URL
+func (s *Spider) PrintReqUrl() {
+	fmt.Println("------------------  Req Url 请求 URL ==> (" + s.reqUrl + ") End")
+	fmt.Println("")
+}
+
 //打印最后 响应 URL
 func (s *Spider) PrintResUrl() {
 	fmt.Println("------------------  Res Url 最后 响应 URL ==> (" + s.resUrl + ") End") // 例如 Content-Encoding

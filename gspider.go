@@ -49,6 +49,8 @@ type Spider struct {
 	KeepAliveTimeout time.Duration
 	//发送 请求 头
 	headerTemplate map[string]string
+	//发送 请求 的Url
+	reqUrl string
 	//发送 请求 的内容
 	reqPostData string
 	//返回 请求 头信息  map[string][]string  val是[]string
@@ -56,7 +58,7 @@ type Spider struct {
 	//返回 响应 头信息  map[string][]string  val是[]string
 	resHeader http.Header
 	//返回内容
-	Content string
+	resContent string
 	//返回 错误 信息 没错返回nil
 	Err error
 	//返回 响应 后的Url
@@ -118,6 +120,10 @@ func (s *Spider) Put(strUrl, refererUrl, strPostData string, header map[string]s
 
 //清空 请求 和 响应 信息
 func (s *Spider) ClearResReqInfo() {
+	//清空 请求 Url
+	s.reqUrl = ""
+	//清空 请求 Post
+	s.reqPostData = ""
 
 	//清空 响应 头信息
 	s.resHeader = nil
@@ -128,7 +134,7 @@ func (s *Spider) ClearResReqInfo() {
 	//清空
 	s.resStatusCode = 0
 	//清空 内容
-	s.Content = ""
+	s.resContent = ""
 	//清空 错误信息
 	s.Err = nil
 }
@@ -142,18 +148,18 @@ func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header 
 	s.ClearResReqInfo()
 
 	strMethod = strings.ToUpper(strMethod)
-	s.reqPostData = ""
 	reqURI, err := url.Parse(strUrl)
 	if err != nil {
-		return s.Content, err
+		return s.resContent, err
 	}
+	s.reqUrl = reqURI.String()
 
 	httpClient := &http.Client{}
 	s.reqPostData = strPostData
 	bytesPostData := bytes.NewBuffer([]byte(strPostData))
-	httpReq, err := http.NewRequest(strMethod, reqURI.String(), bytesPostData)
+	httpReq, err := http.NewRequest(strMethod, s.reqUrl, bytesPostData)
 	if err != nil {
-		return s.Content, err
+		return s.resContent, err
 	}
 
 	ts := &http.Transport{}
@@ -173,7 +179,7 @@ func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header 
 		if len(s.HttpProxyInfo) > 0 { //http 代理设置
 			proxyUrl, err := url.Parse(s.HttpProxyInfo)
 			if err != nil {
-				return s.Content, err
+				return s.resContent, err
 			}
 			ts.Proxy = http.ProxyURL(proxyUrl)
 		}
@@ -187,7 +193,7 @@ func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header 
 				netDialer,
 			)
 			if err != nil {
-				return s.Content, err
+				return s.resContent, err
 			}
 			ts.Dial = (netDialerNew).Dial
 		}
@@ -222,7 +228,7 @@ func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header 
 
 	httpRes, err := httpClient.Do(httpReq)
 	if err != nil {
-		return s.Content, err
+		return s.resContent, err
 	}
 
 	defer httpRes.Body.Close()
@@ -232,7 +238,7 @@ func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header 
 		case "gzip":
 			reader, err = gzip.NewReader(httpRes.Body)
 			if err != nil {
-				return s.Content, err
+				return s.resContent, err
 			}
 		default:
 			reader = httpRes.Body
@@ -240,7 +246,7 @@ func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header 
 	}
 	bodyByte, err := pedanticReadAll(reader)
 	if err != nil {
-		return s.Content, err
+		return s.resContent, err
 	}
 
 	bodyStr := string(bodyByte) //获取文本
@@ -273,8 +279,8 @@ func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header 
 			}
 		}
 	}
-	s.Content = bodyStr
-	return s.Content, nil
+	s.resContent = bodyStr
+	return s.resContent, nil
 }
 
 //读取所有字节

@@ -15,9 +15,23 @@ func (s *Spider) GetResHeader() http.Header {
 	return s.resHeader
 }
 
+func (s *Spider) GetReqUrl() string {
+	return s.reqUrl
+}
+
+//获取 请求 Post 信息
+func (s *Spider) GetReqPostData() string {
+	return s.reqPostData
+}
+
 //获取 响应 后的Url
 func (s *Spider) GetResUrl() string {
 	return s.resUrl
+}
+
+//获取 响应 内容
+func (s *Spider) GetContent() string {
+	return s.resContent
 }
 
 //获取 响应 状态码
