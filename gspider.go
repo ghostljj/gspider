@@ -202,6 +202,10 @@ func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header 
 
 	if s.AllowAutoRedirect == false { //禁止重定向 默认重定向10次
 		httpClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+			// if len(via) >= 10 {
+			// 	return http.ErrUseLastResponse
+			// }
+			// return nil
 			return http.ErrUseLastResponse
 		}
 	}
