@@ -31,6 +31,8 @@ type Spider struct {
 	Encode string
 	// 是否重定向
 	AllowAutoRedirect bool
+	//本地 网络 IP
+	localIP string
 	// 设置Http代理 例：http://127.0.0.1:1081
 	HttpProxyInfo string
 	//Socks5地址 例：127.0.0.1:7813
@@ -174,6 +176,18 @@ func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header 
 			Deadline:  time.Now().Add(s.ReadWriteTimeout * time.Second), //读写超时
 			KeepAlive: s.KeepAliveTimeout * time.Second,                 //保持连接超时设置
 		}
+
+		if len(s.localIP) > 0 { //设置本地网络ip
+			localAddr, err := net.ResolveIPAddr("ip", s.localIP)
+			if err != nil {
+				return s.resContent, err
+			}
+			localTCPAddr := net.TCPAddr{
+				IP: localAddr.IP,
+			}
+			netDialer.LocalAddr = &localTCPAddr
+		}
+
 		ts.TLSHandshakeTimeout = 10 * time.Second   //限制执行TLS握手所花费的时间
 		ts.ResponseHeaderTimeout = 10 * time.Second //限制读取response header的时间
 		// ts.ExpectContinueTimeout = 1 * time.Second  //限制client在发送包含 Expect: 100-continue 的header到收到继续发送body的response之间的时间等待 POST才可能需要
