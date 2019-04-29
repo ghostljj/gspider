@@ -15,6 +15,12 @@ func (s *Spider) GetResHeader() http.Header {
 	return s.resHeader
 }
 
+//获取 响应 Cookies
+func (s *Spider) GetResCookies() []*http.Cookie {
+	return s.resCookies
+}
+
+//获取 请求 Url
 func (s *Spider) GetReqUrl() string {
 	return s.reqUrl
 }
@@ -39,7 +45,7 @@ func (s *Spider) GetResStatusCode() int {
 	return s.resStatusCode
 }
 
-//获取 cookieJar 的 map[string]strin
+//获取 cookieJar 的 map[string]string
 func (s *Spider) GetCookiesMap(strUrl string) map[string]string {
 
 	URI, _ := url.Parse(strUrl)

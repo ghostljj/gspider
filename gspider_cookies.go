@@ -7,12 +7,13 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
 
 //一个全局方法 可以获取cookie json  可用于chrome的 EditThisCookie插件
 func GetCookieJson(strUrl, strCookie string) string {
 	URI, _ := url.Parse(strUrl)
-	var mapCookies []map[string]string
+	var mapCookies []map[string]interface{}
 	parts := strings.Split(strings.TrimSpace(strCookie), ";")
 	for i := 0; i < len(parts); i++ {
 		parts[i] = strings.TrimSpace(parts[i])
@@ -23,7 +24,7 @@ func GetCookieJson(strUrl, strCookie string) string {
 		if j := strings.Index(attr, "="); j >= 0 {
 			attr, val = attr[:j], attr[j+1:]
 		}
-		mapItem := make(map[string]string)
+		mapItem := make(map[string]interface{})
 		mapItem["domain"] = URI.Host
 		mapItem["name"] = attr
 		mapItem["path"] = URI.Path
@@ -31,6 +32,7 @@ func GetCookieJson(strUrl, strCookie string) string {
 			mapItem["path"] = "/"
 		}
 		mapItem["value"] = val
+		mapItem["expirationDate"] = time.Now().Add(time.Hour * +2).Unix()
 		mapItem["id"] = strconv.Itoa(i + 1)
 		mapCookies = append(mapCookies, mapItem)
 	}

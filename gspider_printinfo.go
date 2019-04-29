@@ -46,12 +46,11 @@ func (s *Spider) PrintResHeader(key string) {
 	fmt.Println("")
 }
 
-//打印 响应 头的 Set-Cookie
 func (s *Spider) PrintResSetCookie() {
 	fmt.Println("------------------  S Res 响应 Set-Cookie ")
-	fmt.Println("------------------  使用 GetResHeader()[\"Set-Cookie\"]  []string ")
-	for _, itemCookie := range s.GetResHeader()["Set-Cookie"] {
-		fmt.Println("------------------          " + itemCookie)
+	fmt.Println("------------------  使用 GetResCookies() []*http.Cookie ")
+	for _, itemCookie := range s.GetResCookies() {
+		fmt.Println("------------------          ", itemCookie)
 	}
 	fmt.Println("------------------------------------------------------")
 	fmt.Println()

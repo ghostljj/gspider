@@ -57,6 +57,8 @@ type Spider struct {
 	reqHeader http.Header
 	//返回 响应 头信息  map[string][]string  val是[]string
 	resHeader http.Header
+	//返回当前Set-Cookie
+	resCookies []*http.Cookie
 	//返回内容
 	resContent string
 	//返回 错误 信息 没错返回nil
@@ -129,8 +131,11 @@ func (s *Spider) ClearResReqInfo() {
 	s.resHeader = nil
 	//清空 请求 头信息
 	s.reqHeader = nil
+	//清空 响应 SetCookie
+	s.resCookies = s.resCookies[:0]
 	//清空 响应 后的Url
 	s.resUrl = ""
+
 	//清空
 	s.resStatusCode = 0
 	//清空 内容
@@ -255,6 +260,8 @@ func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header 
 
 	bodyStr := string(bodyByte) //获取文本
 
+	//返回 响应 Cookies
+	s.resCookies = httpRes.Cookies()
 	//设置 响应 头信息
 	s.resHeader = httpRes.Header
 	//设置 请求 头信息
