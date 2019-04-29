@@ -256,7 +256,7 @@ func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header 
 
 	defer httpRes.Body.Close()
 	var reader io.ReadCloser
-	{ //解析gzip default
+	{ //解析gzip deflate
 		switch httpRes.Header.Get("Content-Encoding") {
 		case "gzip":
 			reader, err = gzip.NewReader(httpRes.Body)
