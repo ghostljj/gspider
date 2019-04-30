@@ -29,8 +29,6 @@ import (
 type Spider struct {
 	//编码 默认 Auto 中文 GB18030  或 UTF-8
 	Encode string
-	// 是否重定向
-	AllowAutoRedirect bool
 	//本地 网络 IP
 	localIP string
 	// 设置Http代理 例：http://127.0.0.1:1081
@@ -75,7 +73,6 @@ type Spider struct {
 func NewSpider() Spider {
 	s := Spider{}
 	s.Encode = "Auto"
-	s.AllowAutoRedirect = true
 	s.cookieJar, _ = cookiejar.New(nil)
 	s.Timeout = 30
 	s.ReadWriteTimeout = 30
@@ -146,11 +143,15 @@ func (s *Spider) ClearResReqInfo() {
 	s.Err = nil
 }
 
+func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header map[string]string) (string, error) {
+	return s.SendRedirect(strMethod, strUrl, refererUrl, strPostData, header, 10)
+}
+
 // Send 发送请求
 // strMethod GET POST PUT ...
 // strUrl refererUrl 网址 与 来源网址
 // header  发送头信息
-func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header map[string]string) (string, error) {
+func (s *Spider) SendRedirect(strMethod, strUrl, refererUrl, strPostData string, header map[string]string, redirectCount int) (string, error) {
 
 	s.ClearResReqInfo()
 
@@ -219,13 +220,13 @@ func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header 
 	}
 	httpClient.Transport = ts
 
-	if s.AllowAutoRedirect == false { //禁止重定向 默认重定向10次
+	if redirectCount > 0 { //设置重定向次数 默认重定向10次
 		httpClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-			// if len(via) >= 10 {
-			// 	return http.ErrUseLastResponse
-			// }
-			// return nil
-			return http.ErrUseLastResponse
+			// 没有重定向不会执行，len(via)==1 就是第一次跳进入。选择是否跳
+			if len(via) >= redirectCount {
+				return http.ErrUseLastResponse //返回err就是，不跳
+			}
+			return nil //返回nil就是跳，
 		}
 	}
 
@@ -244,7 +245,11 @@ func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header 
 			sendHeader[strings.ToLower(k)] = v
 		}
 		for k, v := range sendHeader {
-			httpReq.Header.Set(k, v)
+			if len(v) <= 0 {
+				httpReq.Header.Del(k)
+			} else {
+				httpReq.Header.Set(k, v)
+			}
 		}
 	}
 	httpClient.Jar = s.cookieJar
