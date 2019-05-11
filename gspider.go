@@ -19,7 +19,7 @@ import (
 	"golang.org/x/net/proxy"
 )
 
-// Spider   爬虫结构体
+// Spider  2 爬虫结构体
 type Spider struct {
 	//编码 默认 Auto 中文 GB18030  或 UTF-8
 	Encode string
