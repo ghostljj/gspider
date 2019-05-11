@@ -19,12 +19,6 @@ import (
 	"golang.org/x/net/proxy"
 )
 
-// var InitValue = 3
-// func init() {
-//     InitValue = 5
-// 	fmt.Println("sdf")
-// }
-
 // Spider 爬虫结构体
 type Spider struct {
 	//编码 默认 Auto 中文 GB18030  或 UTF-8
