@@ -3,7 +3,19 @@ package gspider
 import (
 	"fmt"
 	"strconv"
+
 )
+
+func (s *Spider) PrintInfo() {
+	s.PrintReqHeader("")          //打印 请求 头信息
+	s.PrintResHeader("")          //打印 响应 头信息
+	s.PrintResSetCookie()         //打印 响应 头信息SetCookie
+	s.PrintReqUrl()               // 打印 请求 Url
+	s.PrintReqPostData()          // 打印 请求 PostData
+	s.PrintResUrl()               // 打印 响应 最后的Url
+	s.PrintCookies(s.GetResUrl()) // 获取 响应 最后的Url 的 Cookie
+	s.PrintResStatusCode()        // 打印 响应 状态码
+}
 
 //打印 请求 头信息 查看信息用
 func (s *Spider) PrintReqHeader(key string) {
