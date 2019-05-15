@@ -7,9 +7,9 @@ import (
 )
 
 func (s *Spider) PrintInfo() {
-	s.PrintReqHeader("")          //打印 请求 头信息
-	s.PrintResHeader("")          //打印 响应 头信息
-	s.PrintResSetCookie()         //打印 响应 头信息SetCookie
+	s.PrintReqHeader("")          // 打印 请求  信息
+	s.PrintResHeader("")          // 打印 响应 头信息
+	s.PrintResSetCookie()         // 打印 响应 头信息SetCookie
 	s.PrintReqUrl()               // 打印 请求 Url
 	s.PrintReqPostData()          // 打印 请求 PostData
 	s.PrintResUrl()               // 打印 响应 最后的Url
