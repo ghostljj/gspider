@@ -2,6 +2,7 @@ package gspider
 
 import (
 	"bytes"
+	"compress/flate"
 	"compress/gzip"
 	"crypto/tls"
 	"encoding/base64"
@@ -262,6 +263,8 @@ func (s *Spider) SendRedirect(strMethod, strUrl, refererUrl, strPostData string,
 			if err != nil {
 				return s.resContent, err
 			}
+		case "deflate":
+			reader = flate.NewReader(httpRes.Body)
 		default:
 			reader = httpRes.Body
 		}
