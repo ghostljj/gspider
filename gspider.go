@@ -273,8 +273,9 @@ func (s *Spider) SendRedirect(strMethod, strUrl, refererUrl, strPostData string,
 	if err != nil {
 		return s.resContent, err
 	}
-
-	bodyStr := string(bodyByte) //获取文本
+	//在UTF-8字符转中，有可能会有一个BOM（字节顺序标记）这个字节顺序标记并不是必须的，有的 UTF-8 数据就是不带这个 BOM 的
+	bodyByte = bytes.TrimPrefix(bodyByte, []byte("\xef\xbb\xbf")) // Or []byte{239, 187, 191}
+	bodyStr := string(bodyByte)                                   //获取文本
 
 	//返回 响应 Cookies
 	s.resCookies = httpRes.Cookies()
