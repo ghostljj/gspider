@@ -3,7 +3,6 @@ package gspider
 import (
 	"fmt"
 	"strconv"
-
 )
 
 func (s *Spider) PrintInfo() {

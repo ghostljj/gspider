@@ -166,7 +166,8 @@ func (s *Spider) SendRedirect(strMethod, strUrl, refererUrl, strPostData string,
 	}
 
 	ts := &http.Transport{}
-	{ //超时设置  代理设置
+	//超时设置  代理设置
+	{
 		netDialer := &net.Dialer{
 			Timeout:   s.Timeout * time.Second,                          //tcp 连接时设置的连接超时
 			Deadline:  time.Now().Add(s.ReadWriteTimeout * time.Second), //读写超时
@@ -225,7 +226,8 @@ func (s *Spider) SendRedirect(strMethod, strUrl, refererUrl, strPostData string,
 		}
 	}
 
-	{ //合并Header
+	//合并Header
+	{
 		sendHeader := make(map[string]string)
 		if strMethod == "POST" || strMethod == "PUT" {
 			sendHeader["content-type"] = "application/x-www-form-urlencoded; charset=UTF-8"
@@ -247,6 +249,7 @@ func (s *Spider) SendRedirect(strMethod, strUrl, refererUrl, strPostData string,
 			}
 		}
 	}
+
 	httpClient.Jar = s.cookieJar
 
 	httpRes, err := httpClient.Do(httpReq)
@@ -256,7 +259,8 @@ func (s *Spider) SendRedirect(strMethod, strUrl, refererUrl, strPostData string,
 
 	defer httpRes.Body.Close()
 	var reader io.ReadCloser
-	{ //解析gzip deflate
+	//解析gzip deflate
+	{
 		switch httpRes.Header.Get("Content-Encoding") {
 		case "gzip":
 			reader, err = gzip.NewReader(httpRes.Body)
@@ -269,6 +273,7 @@ func (s *Spider) SendRedirect(strMethod, strUrl, refererUrl, strPostData string,
 			reader = httpRes.Body
 		}
 	}
+
 	bodyByte, err := pedanticReadAll(reader)
 	if err != nil {
 		return s.resContent, err
