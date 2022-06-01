@@ -19,7 +19,7 @@ func main() {
 	// ss.HttpProxyInfo = fmt.Sprintf("http://%s:%d", "127.0.0.1", 8888)
 	// strContent, err := ss.Get(strUrl, strUrl, nil)
 
-	// strUrl = "https://8876dd.com/app/member/login.php"
+	// strUrl = "https://xxxx.com/app/member/login.php"
 	// strContent, err := ss.Post(strUrl, strUrl, `uid=&langx=zh-cn&mac=&ver=&JE=&radio=web_new&username=winner88&password=asdf1234&remember=on`, nil)
 
 	setHeader := make(map[string]string)
