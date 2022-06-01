@@ -22,7 +22,7 @@ import (
 
 // Spider  3爬虫结构体
 type Spider struct {
-	//编码 默认 Auto 中文 GB18030  或 UTF-8
+	//编码 默认 Auto 中文 GB18030  或  UTF-8
 	Encode string
 	//本地 网络 IP
 	localIP string
