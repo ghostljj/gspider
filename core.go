@@ -118,9 +118,9 @@ func (s *Spider) SendRedirect(strMethod, strUrl, refererUrl, strPostData string,
 	//超时设置  代理设置
 	{
 		netDialer := &net.Dialer{
-			Timeout:   s.Timeout * time.Second,                          //tcp 连接时设置的连接超时
-			Deadline:  time.Now().Add(s.ReadWriteTimeout * time.Second), //读写超时
-			KeepAlive: s.KeepAliveTimeout * time.Second,                 //保持连接超时设置
+			Timeout:   s.dopts.timeout * time.Second,                          //tcp 连接时设置的连接超时
+			Deadline:  time.Now().Add(s.dopts.readWriteTimeout * time.Second), //读写超时
+			KeepAlive: s.dopts.keepAliveTimeout * time.Second,                 //保持连接超时设置
 		}
 
 		if len(s.localIP) > 0 { //设置本地网络ip
@@ -141,19 +141,19 @@ func (s *Spider) SendRedirect(strMethod, strUrl, refererUrl, strPostData string,
 		ts.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //跳过证书验证
 
 		ts.Dial = (netDialer).Dial
-		if len(s.HttpProxyInfo) > 0 { //http 代理设置
-			proxyUrl, err := url.Parse(s.HttpProxyInfo)
+		if len(s.dopts.httpProxyInfo) > 0 { //http 代理设置
+			proxyUrl, err := url.Parse(s.dopts.httpProxyInfo)
 			if err != nil {
 				return s.resContent, err
 			}
 			ts.Proxy = http.ProxyURL(proxyUrl)
 		}
-		if len(s.Socks5Address) > 0 { //SOCKS5 代理设置
+		if len(s.dopts.socks5Address) > 0 { //SOCKS5 代理设置
 			var Socks5Auth *proxy.Auth
-			if len(s.Socks5User) > 0 {
-				Socks5Auth = &proxy.Auth{User: s.Socks5User, Password: s.Socks5Pass} // 没有就不设置 就是nil
+			if len(s.dopts.socks5User) > 0 {
+				Socks5Auth = &proxy.Auth{User: s.dopts.socks5User, Password: s.dopts.socks5Pass} // 没有就不设置 就是nil
 			}
-			netDialerNew, err := proxy.SOCKS5("tcp", s.Socks5Address,
+			netDialerNew, err := proxy.SOCKS5("tcp", s.dopts.socks5Address,
 				Socks5Auth,
 				netDialer,
 			)
@@ -243,13 +243,13 @@ func (s *Spider) SendRedirect(strMethod, strUrl, refererUrl, strPostData string,
 	if strings.Index(contentType, "image/") <= -1 {
 		//自动/手动 编码
 		var charset string
-		if strings.ToLower(s.Encode) == "auto" {
+		if strings.ToLower(s.dopts.encode) == "auto" {
 			autoEncode, err := chardet.NewTextDetector().DetectBest(bodyByte)
 			if err == nil {
 				charset = autoEncode.Charset
 			}
 		} else {
-			charset = s.Encode
+			charset = s.dopts.encode
 		}
 		//进行编码
 		if charset != "" {
