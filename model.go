@@ -11,7 +11,7 @@ type Spider struct {
 	localIP string
 	//Cookie
 	cookieJar http.CookieJar
-	// Default and user specified dial options.
+	// 配置
 	dopts spiderOptions
 	//发送 请求 头
 	headerTemplate map[string]string
