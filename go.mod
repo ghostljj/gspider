@@ -1,4 +1,4 @@
-module gspider
+module github.com/ghostljj/gspider
 
 go 1.18
 

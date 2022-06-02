@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	gs "gspider"
+	gs "github.com/ghostljj/gspider"
 )
 
 func main() {
