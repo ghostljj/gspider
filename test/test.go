@@ -2,29 +2,31 @@ package main
 
 import (
 	"fmt"
-	"github.com/ghostljj/gspider"
+	gs "github.com/ghostljj/gspider"
 )
 
 func main() {
 
 	var strUrl string
 	strUrl = "http://2022.ip138.com/ic.asp"
+	//strUrl = "http://www.baidu.com"
+	//strUrl = "http://www.google.com"
 
-	ss := gspider.NewSpider()
+	//ss := gs.NewSpider2(gs.Encode("utf-8"))
+	ss := gs.NewSpider()
 	//ps := u.GetProxy(false, 0) //可能返回nil
 	//if ps != nil {             //设置代理
-	//	ss.HttpProxyInfo = fmt.Sprintf("http://%s:%d", ps.IP, ps.PORT)
+	//  ss.SetHttpProxy(fmt.Sprintf("http://%s:%d", ps.IP, ps.PORT))
 	//}
-
-	// ss.HttpProxyInfo = fmt.Sprintf("http://%s:%d", "127.0.0.1", 8888)
-	// strContent, err := ss.Get(strUrl, strUrl, nil)
+	//ss.SetHttpProxy(fmt.Sprintf("http://%s:%d", "127.0.0.1", 10809))
+	//ss.SetSocks5Proxy("127.0.0.1:10808", "", "")
 
 	// strUrl = "https://xxxx.com/app/member/login.php"
 	// strContent, err := ss.Post(strUrl, strUrl, `uid=&langx=zh-cn&mac=&ver=&JE=&radio=web_new&username=winner88&password=asdf1234&remember=on`, nil)
 
 	setHeader := make(map[string]string)
 	setHeader["Connection"] = ""
-	strContent, err := ss.Get(strUrl, "", nil)
+	strContent, err := ss.Get(strUrl, gs.NewRequestOptions())
 	if err != nil {
 		fmt.Println("Error=" + err.Error())
 	} else {

@@ -19,60 +19,55 @@ import (
 	"golang.org/x/net/proxy"
 )
 
-//Get 方法
-func (s *Spider) Get(strUrl, refererUrl string, header map[string]string) (string, error) {
-	return s.Send("GET", strUrl, refererUrl, "", header)
-}
-func (s *Spider) GetJson(strUrl, refererUrl string, header map[string]string) (string, error) {
-	addHeader := make(map[string]string)
-	addHeader[`accept`] = `application/json, text/plain, */*`
-	for k, v := range header {
-		addHeader[strings.ToLower(k)] = v
+//--------------------------------------------------------------------------------------------------------------
+
+func (s *Spider) setRequestOptionsCookie(strUrl string, ro *requestOptions) {
+	if ro.CookieAll != "" {
+		s.SetCookiesAll(strUrl, ro.CookieAll)
 	}
-	return s.Send("GET", strUrl, refererUrl, "", addHeader)
+	if ro.Cookie != "" {
+		s.SetCookies(strUrl, ro.Cookie)
+	}
+}
+
+func (s *Spider) Get(strUrl string, ro *requestOptions) (string, error) {
+	s.setRequestOptionsCookie(strUrl, ro)
+	return s.SendRedirect("GET", strUrl, ro)
+}
+
+func (s *Spider) GetJson(strUrl string, ro *requestOptions) (string, error) {
+	s.setRequestOptionsCookie(strUrl, ro)
+	ro.IsGetJson = 1
+	return s.SendRedirect("GET", strUrl, ro)
 }
 
 //Post 方法
-func (s *Spider) Post(strUrl, refererUrl, strPostData string, header map[string]string) (string, error) {
-	addHeader := make(map[string]string)
-	addHeader[`content-type`] = `application/x-www-form-urlencoded; charset=UTF-8`
-	for k, v := range header {
-		addHeader[strings.ToLower(k)] = v
-	}
-	return s.Send("POST", strUrl, refererUrl, strPostData, addHeader)
+func (s *Spider) Post(strUrl string, ro *requestOptions) (string, error) {
+	s.setRequestOptionsCookie(strUrl, ro)
+	return s.SendRedirect("POST", strUrl, ro)
 }
-func (s *Spider) PostJson(strUrl, refererUrl, strPostData string, header map[string]string) (string, error) {
-	addHeader := make(map[string]string)
-	addHeader[`accept`] = `application/json, text/plain, */*`
-	addHeader[`content-type`] = `application/json;charset=UTF-8`
-	for k, v := range header {
-		addHeader[strings.ToLower(k)] = v
-	}
-	return s.Send("POST", strUrl, refererUrl, strPostData, addHeader)
+func (s *Spider) PostJson(strUrl string, ro *requestOptions) (string, error) {
+	s.setRequestOptionsCookie(strUrl, ro)
+	ro.IsPostJson = 1
+	ro.IsGetJson = 1
+	return s.SendRedirect("POST", strUrl, ro)
 }
 
 //Put Put方法
-func (s *Spider) Put(strUrl, refererUrl, strPostData string, header map[string]string) (string, error) {
-	addHeader := make(map[string]string)
-	addHeader[`content-type`] = `application/x-www-form-urlencoded; charset=UTF-8`
-	for k, v := range header {
-		addHeader[strings.ToLower(k)] = v
-	}
-	return s.Send("PUT", strUrl, refererUrl, strPostData, addHeader)
+func (s *Spider) Put(strUrl string, ro *requestOptions) (string, error) {
+	s.setRequestOptionsCookie(strUrl, ro)
+	return s.SendRedirect("PUT", strUrl, ro)
 }
-func (s *Spider) PutJson(strUrl, refererUrl, strPostData string, header map[string]string) (string, error) {
-	addHeader := make(map[string]string)
-	addHeader[`accept`] = `application/json, text/plain, */*`
-	addHeader[`content-type`] = `application/json;charset=UTF-8`
-	for k, v := range header {
-		addHeader[strings.ToLower(k)] = v
-	}
-	return s.Send("PUT", strUrl, refererUrl, strPostData, addHeader)
+func (s *Spider) PutJson(strUrl string, ro *requestOptions) (string, error) {
+	s.setRequestOptionsCookie(strUrl, ro)
+	ro.IsGetJson = 1
+	ro.IsPostJson = 1
+	return s.SendRedirect("PUT", strUrl, ro)
 }
 
 //获取img src 值
-func (s *Spider) GetBase64ImageSrc(strUrl, refererUrl string, header map[string]string) (string, error) {
-	strContent, err := s.GetBase64Image(strUrl, refererUrl, header)
+func (s *Spider) GetBase64ImageSrc(strUrl string, ro *requestOptions) (string, error) {
+	strContent, err := s.GetBase64Image(strUrl, ro)
 	if err == nil {
 		contentType := s.GetResHeader().Get("Content-Type")
 		strContent = "data:" + contentType + ";base64," + strContent + ""
@@ -81,21 +76,16 @@ func (s *Spider) GetBase64ImageSrc(strUrl, refererUrl string, header map[string]
 }
 
 //获取Base64 字符串
-func (s *Spider) GetBase64Image(strUrl, refererUrl string, header map[string]string) (string, error) {
-	strContent, err := s.Send("GET", strUrl, refererUrl, "", header)
+func (s *Spider) GetBase64Image(strUrl string, ro *requestOptions) (string, error) {
+	s.setRequestOptionsCookie(strUrl, ro)
+	strContent, err := s.SendRedirect("GET", strUrl, ro)
 	strContent = base64.StdEncoding.EncodeToString([]byte(strContent))
 	return strContent, err
 }
 
-func (s *Spider) Send(strMethod, strUrl, refererUrl, strPostData string, header map[string]string) (string, error) {
-	return s.SendRedirect(strMethod, strUrl, refererUrl, strPostData, header, 10)
-}
-
 // SendRedirect 发送请求
 // strMethod GET POST PUT ...
-// strUrl refererUrl 网址 与 来源网址
-// header  发送头信息
-func (s *Spider) SendRedirect(strMethod, strUrl, refererUrl, strPostData string, header map[string]string, redirectCount int) (string, error) {
+func (s *Spider) SendRedirect(strMethod, strUrl string, ro *requestOptions) (string, error) {
 
 	s.ClearResReqInfo()
 
@@ -107,8 +97,8 @@ func (s *Spider) SendRedirect(strMethod, strUrl, refererUrl, strPostData string,
 	s.reqUrl = reqURI.String()
 
 	httpClient := &http.Client{}
-	s.reqPostData = strPostData
-	bytesPostData := bytes.NewBuffer([]byte(strPostData))
+	s.reqPostData = ro.PostData
+	bytesPostData := bytes.NewBuffer([]byte(ro.PostData))
 	httpReq, err := http.NewRequest(strMethod, s.reqUrl, bytesPostData)
 	if err != nil {
 		return s.resContent, err
@@ -118,9 +108,9 @@ func (s *Spider) SendRedirect(strMethod, strUrl, refererUrl, strPostData string,
 	//超时设置  代理设置
 	{
 		netDialer := &net.Dialer{
-			Timeout:   s.dopts.timeout * time.Second,                          //tcp 连接时设置的连接超时
-			Deadline:  time.Now().Add(s.dopts.readWriteTimeout * time.Second), //读写超时
-			KeepAlive: s.dopts.keepAliveTimeout * time.Second,                 //保持连接超时设置
+			Timeout:   s.timeout * time.Second,                          //tcp 连接时设置的连接超时
+			Deadline:  time.Now().Add(s.readWriteTimeout * time.Second), //读写超时
+			KeepAlive: s.keepAliveTimeout * time.Second,                 //保持连接超时设置
 		}
 
 		if len(s.localIP) > 0 { //设置本地网络ip
@@ -141,19 +131,19 @@ func (s *Spider) SendRedirect(strMethod, strUrl, refererUrl, strPostData string,
 		ts.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //跳过证书验证
 
 		ts.Dial = (netDialer).Dial
-		if len(s.dopts.httpProxyInfo) > 0 { //http 代理设置
-			proxyUrl, err := url.Parse(s.dopts.httpProxyInfo)
+		if len(s.httpProxyInfo) > 0 { //http 代理设置
+			proxyUrl, err := url.Parse(s.httpProxyInfo)
 			if err != nil {
 				return s.resContent, err
 			}
 			ts.Proxy = http.ProxyURL(proxyUrl)
 		}
-		if len(s.dopts.socks5Address) > 0 { //SOCKS5 代理设置
+		if len(s.socks5Address) > 0 { //SOCKS5 代理设置
 			var Socks5Auth *proxy.Auth
-			if len(s.dopts.socks5User) > 0 {
-				Socks5Auth = &proxy.Auth{User: s.dopts.socks5User, Password: s.dopts.socks5Pass} // 没有就不设置 就是nil
+			if len(s.socks5User) > 0 {
+				Socks5Auth = &proxy.Auth{User: s.socks5User, Password: s.socks5Pass} // 没有就不设置 就是nil
 			}
-			netDialerNew, err := proxy.SOCKS5("tcp", s.dopts.socks5Address,
+			netDialerNew, err := proxy.SOCKS5("tcp", s.socks5Address,
 				Socks5Auth,
 				netDialer,
 			)
@@ -166,10 +156,10 @@ func (s *Spider) SendRedirect(strMethod, strUrl, refererUrl, strPostData string,
 	httpClient.Transport = ts
 
 	//设置重定向次数 默认重定向10次
-	if redirectCount > 0 {
+	if ro.RedirectCount > 0 {
 		httpClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 			// 没有重定向不会执行，len(via)==1 就是第一次跳进入。选择是否跳
-			if len(via) >= redirectCount {
+			if len(via) >= ro.RedirectCount {
 				return http.ErrUseLastResponse //返回err就是，不跳
 			}
 			return nil //返回nil就是跳，
@@ -179,13 +169,24 @@ func (s *Spider) SendRedirect(strMethod, strUrl, refererUrl, strPostData string,
 	//合并Header
 	{
 		sendHeader := make(map[string]string)
-		if len(refererUrl) > 0 {
-			sendHeader["Referer"] = refererUrl
+		if len(ro.RefererUrl) > 0 {
+			sendHeader["Referer"] = ro.RefererUrl
 		}
-		for k, v := range s.headerTemplate {
+
+		for k, v := range s.defaultHeaderTemplate {
 			sendHeader[strings.ToLower(k)] = v
 		}
-		for k, v := range header {
+
+		if ro.IsGetJson == 1 { //接收json
+			sendHeader[strings.ToLower(`accept`)] = `application/json, text/plain, */*`
+		}
+		if ro.IsPostJson == 1 { //发送json
+			sendHeader[strings.ToLower(`content-type`)] = `application/json;charset=UTF-8`
+		} else if ro.IsPostJson == 0 { //发送from
+			sendHeader[strings.ToLower(`content-type`)] = `application/x-www-form-urlencoded; charset=UTF-8`
+		}
+
+		for k, v := range ro.Header {
 			sendHeader[strings.ToLower(k)] = v
 		}
 		for k, v := range sendHeader {
@@ -243,13 +244,13 @@ func (s *Spider) SendRedirect(strMethod, strUrl, refererUrl, strPostData string,
 	if strings.Index(contentType, "image/") <= -1 {
 		//自动/手动 编码
 		var charset string
-		if strings.ToLower(s.dopts.encode) == "auto" {
+		if strings.ToLower(s.encode) == "auto" {
 			autoEncode, err := chardet.NewTextDetector().DetectBest(bodyByte)
 			if err == nil {
 				charset = autoEncode.Charset
 			}
 		} else {
-			charset = s.dopts.encode
+			charset = s.encode
 		}
 		//进行编码
 		if charset != "" {
@@ -263,7 +264,7 @@ func (s *Spider) SendRedirect(strMethod, strUrl, refererUrl, strPostData string,
 	return s.resContent, nil
 }
 
-//读取所有字节
+//pedanticReadAll 读取所有字节
 func pedanticReadAll(r io.Reader) (b []byte, err error) {
 	var bufa [64]byte
 	buf := bufa[:]
