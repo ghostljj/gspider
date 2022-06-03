@@ -16,6 +16,7 @@ func main() {
 	ss.Encode = "utf-8"
 	ss.RefererUrl = "http://www.baidu.com"
 	ss.Cookie = "aa=11;bb=22"
+	ss.Header = map[string]string{"h1": "v1", "h2": "v2"}
 	//ss.SetHttpProxy(fmt.Sprintf("http://%s:%d", "127.0.0.1", 10809))
 	//ss.SetSocks5Proxy("127.0.0.1:10808", "", "")
 

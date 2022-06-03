@@ -1,70 +1,60 @@
 
 <p align="center"> 
   <h1> 欢迎使用gspider 蜘蛛 爬虫 采集</h1>
-</p> 
+</p>
 
 
-<p align="center">快速采集网页</a></p>
+<p align="center">快速采集网页 </p>
  
 开始
 ===============
 
 ## 安装
 ```sh
-$ go get -u ...
+$ go get -u github.com/ghostljj/gspider
 ```
-```go
-  "github.com/axgle/mahonia"  //解决编码用
-  "github.com/saintfish/chardet" //自动获取编码用 
-  "golang.org/x/net/proxy" //设置代理用
-
-  "github.com/ghostljj/gspider"//爬虫包
+```azure
+python 有大名鼎鼎的requests
+golang 有gspider 大致使用差不多
+支持http代理，Socks5代理
 ```
-此包需要使用到上面几个库，请自行go get -u .... <br/>
-支持http(s)代理，Socks5代理 <br/> 
 
-
-
-
+ 
 ## 例子
 
 ```go
+var strUrl string
+strUrl = "http://2022.ip138.com/ic.asp"
+//strUrl = "http://www.baidu.com"
+//strUrl = "http://www.google.com"
 
-	var strUrl string
-	strUrl = "http://2018.ip138.com/ic.asp"
-	ss := gspider.NewSpider()
-	{ //设置代理  / Socks5
-		// ss.HttpProxyInfo = "http://127.0.0.1:1081" //设置代理
+ss := gs.Session()
+ss.Encode = "utf-8"
+ss.RefererUrl = "http://www.baidu.com"
+ss.Cookie = "aa=11;bb=22"
+ss.Header = map[string]string{"h1": "v1", "h2": "v2"}
+//ss.SetHttpProxy(fmt.Sprintf("http://%s:%d", "127.0.0.1", 10809))
+//ss.SetSocks5Proxy("127.0.0.1:10808", "", "")
 
-		// ss.Socks5Address = "127.0.0.1:7813" //设置代理Socks5
-		// ss.Socks5User = "User"
-		// ss.Socks5Pass = "pass"
-	}
-	{ //设置Cookie
-		// ss.SetCookiesAll(strUrl, "NewKey1=NewValue1;NewKey2=NewValue==99=2;")
-  }
+ss.Get(strUrl)
 
-	strContent, err := ss.Send("GET", strUrl, strUrl, "", nil)
-  // 或者用这个	strContent, err := ss.Get(strUrl, strUrl, nil)
-	if err != nil {
-		fmt.Println("Error=" + err.Error())
-	} else {
+if ss.GetErr() != nil {
+    fmt.Println("Error=" + ss.GetErr().Error())
+} else {
+    fmt.Println()
+    fmt.Println()
+    fmt.Println()
+    fmt.Println()
+    fmt.Println(ss.GetContent())
+    ss.PrintReqHeader("")           //打印 请求 头信息
+    ss.PrintReqPostData()           // 打印 请求 PostData
+    ss.PrintResHeader("")           //打印 响应 头信息
+    ss.PrintResSetCookie()          //打印 响应 头信息SetCookie
+    ss.PrintResUrl()                // 打印 响应 最后的Url
+    ss.PrintCookies(ss.GetResUrl()) // 获取 响应 最后的Url 的 Cookie
+    ss.PrintResStatusCode()         // 打印 响应 状态码
 
-		fmt.Println()
-		fmt.Println()
-		fmt.Println()
-		fmt.Println()
-		fmt.Println(strContent)
-		ss.PrintReqHeader("")           //打印 请求 头信息
-		ss.PrintResHeader("")           //打印 响应 头信息
-		ss.PrintResSetCookie()          //打印 响应 头信息SetCookie
-		ss.PrintReqUrl()                // 打印 请求 Url
-		ss.PrintReqPostData()           // 打印 请求 PostData
-		ss.PrintResUrl()                // 打印 响应 最后的Url
-		ss.PrintCookies(ss.GetResUrl()) // 获取 响应 最后的Url 的 Cookie
-		ss.PrintResStatusCode()         // 打印 响应 状态码
-
-	}
+}
 ```
 
 为什么打印些无用的东西给我？<br/>
@@ -72,9 +62,9 @@ $ go get -u ...
 打印后慢慢磨控制台，会有惊喜<br/>
 
 ```go
-值得注意的是我单独写出RefererUrl,我个人认为，很多网站模拟的时候。是需要看来源的。特别是高级爬虫的时候。麻烦点是麻烦点，安全稳妥。
 
-可以Post 和 Get 或者Send  最后有个 nil  ，这个是map[string]string 请求头的修改，不修改就是nil
+可以Post, Get, PostJson,GetJson 等  有示例2 有空可以看看
+
 Post 时注意，送给同学们url.QueryEscape 这个函数，用于参数编码，会有用的。Post json请忽略
 
 还有就是可以获取图像Base64字符串，使用GetBase64Image
