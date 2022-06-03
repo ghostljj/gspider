@@ -34,6 +34,7 @@ func main() {
 	//ros.Header = map[string]string{"hkey1": "hvalue1", "hkey2": "hvalue2"}
 	//ros.Cookie = "abc=123"
 	strContent, err := ss.Get(strUrl, ros)
+	//strContent, err := ss.Get(strUrl, ros)
 	if err != nil {
 		fmt.Println("Error=" + err.Error())
 	} else {

@@ -22,52 +22,69 @@ import (
 //--------------------------------------------------------------------------------------------------------------
 
 func (s *Spider) setRequestOptionsCookie(strUrl string, ro *requestOptions) {
-	if ro.CookieAll != "" {
-		s.SetCookiesAll(strUrl, ro.CookieAll)
+	if ro == nil {
+		ro = NewRequestOptions()
 	}
 	if ro.Cookie != "" {
 		s.SetCookies(strUrl, ro.Cookie)
 	}
+	if ro.CookieAll != "" {
+		s.SetCookiesAll(strUrl, ro.CookieAll)
+	}
 }
 
-func (s *Spider) Get(strUrl string, ro *requestOptions) (string, error) {
-	s.setRequestOptionsCookie(strUrl, ro)
-	return s.SendRedirect("GET", strUrl, ro)
+func (s *Spider) Get(strUrl string, ros *requestOptions) (string, error) {
+	s.setRequestOptionsCookie(strUrl, ros)
+	return s.SendRedirect("GET", strUrl, ros)
 }
 
-func (s *Spider) GetJson(strUrl string, ro *requestOptions) (string, error) {
-	s.setRequestOptionsCookie(strUrl, ro)
-	ro.IsGetJson = 1
-	return s.SendRedirect("GET", strUrl, ro)
+func (s *Spider) GetJson(strUrl string, ros *requestOptions) (string, error) {
+	s.setRequestOptionsCookie(strUrl, ros)
+	ros.IsGetJson = 1
+	return s.SendRedirect("GET", strUrl, ros)
+}
+func (s *Spider) GetJsonR(strUrl string, isPost bool, ros *requestOptions) (string, error) {
+	s.setRequestOptionsCookie(strUrl, ros)
+	ros.IsGetJson = 1
+	if isPost {
+		ros.IsPostJson = 1
+	}
+	return s.SendRedirect("GET", strUrl, ros)
+}
+
+func (s *Spider) DeleteJson(strUrl string, ros *requestOptions) (string, error) {
+	s.setRequestOptionsCookie(strUrl, ros)
+	ros.IsGetJson = 1
+	return s.SendRedirect("DELETE", strUrl, ros)
 }
 
 //Post 方法
-func (s *Spider) Post(strUrl string, ro *requestOptions) (string, error) {
-	s.setRequestOptionsCookie(strUrl, ro)
-	return s.SendRedirect("POST", strUrl, ro)
+func (s *Spider) Post(strUrl string, ros *requestOptions) (string, error) {
+	s.setRequestOptionsCookie(strUrl, ros)
+	return s.SendRedirect("POST", strUrl, ros)
 }
-func (s *Spider) PostJson(strUrl string, ro *requestOptions) (string, error) {
-	s.setRequestOptionsCookie(strUrl, ro)
-	ro.IsPostJson = 1
-	ro.IsGetJson = 1
-	return s.SendRedirect("POST", strUrl, ro)
+func (s *Spider) PostJson(strUrl string, ros *requestOptions) (string, error) {
+	s.setRequestOptionsCookie(strUrl, ros)
+	ros.IsPostJson = 1
+	ros.IsGetJson = 1
+	return s.SendRedirect("POST", strUrl, ros)
 }
 
 //Put Put方法
-func (s *Spider) Put(strUrl string, ro *requestOptions) (string, error) {
-	s.setRequestOptionsCookie(strUrl, ro)
-	return s.SendRedirect("PUT", strUrl, ro)
+func (s *Spider) Put(strUrl string, ros *requestOptions) (string, error) {
+	s.setRequestOptionsCookie(strUrl, ros)
+	return s.SendRedirect("PUT", strUrl, ros)
 }
-func (s *Spider) PutJson(strUrl string, ro *requestOptions) (string, error) {
-	s.setRequestOptionsCookie(strUrl, ro)
-	ro.IsGetJson = 1
-	ro.IsPostJson = 1
-	return s.SendRedirect("PUT", strUrl, ro)
+func (s *Spider) PutJson(strUrl string, ros *requestOptions) (string, error) {
+	s.setRequestOptionsCookie(strUrl, ros)
+	ros.IsGetJson = 1
+	ros.IsPostJson = 1
+	return s.SendRedirect("PUT", strUrl, ros)
 }
 
 //获取img src 值
-func (s *Spider) GetBase64ImageSrc(strUrl string, ro *requestOptions) (string, error) {
-	strContent, err := s.GetBase64Image(strUrl, ro)
+func (s *Spider) GetBase64ImageSrc(strUrl string, ros *requestOptions) (string, error) {
+	strContent, err := s.GetBase64Image(strUrl, ros)
 	if err == nil {
 		contentType := s.GetResHeader().Get("Content-Type")
 		strContent = "data:" + contentType + ";base64," + strContent + ""
@@ -76,16 +93,16 @@ func (s *Spider) GetBase64ImageSrc(strUrl string, ro *requestOptions) (string, e
 }
 
 //获取Base64 字符串
-func (s *Spider) GetBase64Image(strUrl string, ro *requestOptions) (string, error) {
-	s.setRequestOptionsCookie(strUrl, ro)
-	strContent, err := s.SendRedirect("GET", strUrl, ro)
+func (s *Spider) GetBase64Image(strUrl string, ros *requestOptions) (string, error) {
+	s.setRequestOptionsCookie(strUrl, ros)
+	strContent, err := s.SendRedirect("GET", strUrl, ros)
 	strContent = base64.StdEncoding.EncodeToString([]byte(strContent))
 	return strContent, err
 }
 
 // SendRedirect 发送请求
 // strMethod GET POST PUT ...
-func (s *Spider) SendRedirect(strMethod, strUrl string, ro *requestOptions) (string, error) {
+func (s *Spider) SendRedirect(strMethod, strUrl string, ros *requestOptions) (string, error) {
 
 	s.ClearResReqInfo()
 
@@ -97,8 +114,8 @@ func (s *Spider) SendRedirect(strMethod, strUrl string, ro *requestOptions) (str
 	s.reqUrl = reqURI.String()
 
 	httpClient := &http.Client{}
-	s.reqPostData = ro.PostData
-	bytesPostData := bytes.NewBuffer([]byte(ro.PostData))
+	s.reqPostData = ros.PostData
+	bytesPostData := bytes.NewBuffer([]byte(ros.PostData))
 	httpReq, err := http.NewRequest(strMethod, s.reqUrl, bytesPostData)
 	if err != nil {
 		return s.resContent, err
@@ -156,10 +173,10 @@ func (s *Spider) SendRedirect(strMethod, strUrl string, ro *requestOptions) (str
 	httpClient.Transport = ts
 
 	//设置重定向次数 默认重定向10次
-	if ro.RedirectCount > 0 {
+	if ros.RedirectCount > 0 {
 		httpClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 			// 没有重定向不会执行，len(via)==1 就是第一次跳进入。选择是否跳
-			if len(via) >= ro.RedirectCount {
+			if len(via) >= ros.RedirectCount {
 				return http.ErrUseLastResponse //返回err就是，不跳
 			}
 			return nil //返回nil就是跳，
@@ -169,24 +186,24 @@ func (s *Spider) SendRedirect(strMethod, strUrl string, ro *requestOptions) (str
 	//合并Header
 	{
 		sendHeader := make(map[string]string)
-		if len(ro.RefererUrl) > 0 {
-			sendHeader["Referer"] = ro.RefererUrl
+		if len(ros.RefererUrl) > 0 {
+			sendHeader["Referer"] = ros.RefererUrl
 		}
 
 		for k, v := range s.defaultHeaderTemplate {
 			sendHeader[strings.ToLower(k)] = v
 		}
 
-		if ro.IsGetJson == 1 { //接收json
+		if ros.IsGetJson == 1 { //接收json
 			sendHeader[strings.ToLower(`accept`)] = `application/json, text/plain, */*`
 		}
-		if ro.IsPostJson == 1 { //发送json
+		if ros.IsPostJson == 1 { //发送json
 			sendHeader[strings.ToLower(`content-type`)] = `application/json;charset=UTF-8`
-		} else if ro.IsPostJson == 0 { //发送from
+		} else if ros.IsPostJson == 0 { //发送from
 			sendHeader[strings.ToLower(`content-type`)] = `application/x-www-form-urlencoded; charset=UTF-8`
 		}
 
-		for k, v := range ro.Header {
+		for k, v := range ros.Header {
 			sendHeader[strings.ToLower(k)] = v
 		}
 		for k, v := range sendHeader {

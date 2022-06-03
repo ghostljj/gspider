@@ -21,9 +21,6 @@ func main() {
 	//ss.SetHttpProxy(fmt.Sprintf("http://%s:%d", "127.0.0.1", 10809))
 	//ss.SetSocks5Proxy("127.0.0.1:10808", "", "")
 
-	// strUrl = "https://xxxx.com/app/member/login.php"
-	// strContent, err := ss.Post(strUrl, strUrl, `uid=&langx=zh-cn&mac=&ver=&JE=&radio=web_new&username=winner88&password=asdf1234&remember=on`, nil)
-
 	setHeader := make(map[string]string)
 	setHeader["Connection"] = ""
 	strContent, err := ss.Get(strUrl, gs.NewRequestOptions())
