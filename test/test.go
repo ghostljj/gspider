@@ -12,26 +12,23 @@ func main() {
 	//strUrl = "http://www.baidu.com"
 	//strUrl = "http://www.google.com"
 
-	//ss := gs.NewSpider2(gs.Encode("utf-8"))
-	ss := gs.NewSpider()
-	//ps := u.GetProxy(false, 0) //可能返回nil
-	//if ps != nil {             //设置代理
-	//  ss.SetHttpProxy(fmt.Sprintf("http://%s:%d", ps.IP, ps.PORT))
-	//}
+	ss := gs.Session()
+	ss.Encode = "utf-8"
+	ss.RefererUrl = "http://www.baidu.com"
+	ss.Cookie = "aa=11;bb=22"
 	//ss.SetHttpProxy(fmt.Sprintf("http://%s:%d", "127.0.0.1", 10809))
 	//ss.SetSocks5Proxy("127.0.0.1:10808", "", "")
 
-	setHeader := make(map[string]string)
-	setHeader["Connection"] = ""
-	strContent, err := ss.Get(strUrl, gs.NewRequestOptions())
-	if err != nil {
-		fmt.Println("Error=" + err.Error())
+	ss.Get(strUrl)
+
+	if ss.GetErr() != nil {
+		fmt.Println("Error=" + ss.GetErr().Error())
 	} else {
 		fmt.Println()
 		fmt.Println()
 		fmt.Println()
 		fmt.Println()
-		fmt.Println(strContent)
+		fmt.Println(ss.GetContent())
 		ss.PrintReqHeader("")           //打印 请求 头信息
 		ss.PrintReqPostData()           // 打印 请求 PostData
 		ss.PrintResHeader("")           //打印 响应 头信息
