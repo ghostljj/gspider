@@ -1,3 +1,14 @@
+// Package 这是一个Get Post 强大模拟器
+//
+// request 是请求对象 ,申请一个新对象，gspider.Session()
+//
+// response 是返回对象1
+//
+//  文档安装调试
+//    1、 go get -u golang.org/x/pkgsite/cmd/pkgsite@latest
+//    2、 go install golang.org/x/pkgsite/cmd/pkgsite@latest
+//    3、 pkgsite -http=:6060 -list=false
+//    4、 打开 http://127.0.0.1:6060/github.com/ghostljj/gspider#pkg-overview
 package gspider
 
 import (
@@ -35,7 +46,9 @@ type SendCookieAll map[string]string
 //	}
 //}
 
-type requests struct {
+// Request 这是一个请求对象
+//
+type Request struct {
 	myMutex       sync.Mutex        //本对象的同步对象
 	LocalIP       string            //本地 网络 IP
 	RefererUrl    string            //来源url
@@ -45,6 +58,7 @@ type requests struct {
 	Cookie        string            //cookie     单独url
 	CookieAll     string            //cookieAll  根url+单独url
 	RedirectCount int               //重定向次数
+	Verify        bool              //https 不验证ssl
 
 	Timeout          time.Duration // 连接超时
 	ReadWriteTimeout time.Duration // 读写超时
@@ -61,12 +75,13 @@ type requests struct {
 }
 
 //defaultRequestOptions 默认配置参数
-func defaultRequestOptions() *requests {
-	ros := requests{
+func defaultRequest() *Request {
+	ros := Request{
 		isPostJson:    -1,
 		isGetJson:     -1,
 		Header:        make(map[string]string),
 		RedirectCount: 10,
+		Verify:        false,
 
 		Timeout:          30,
 		ReadWriteTimeout: 30,
@@ -83,8 +98,11 @@ func defaultRequestOptions() *requests {
 	return &ros
 }
 
-func Session() *requests {
-	return defaultRequestOptions()
+// Session
+//
+// 创建Request对象
+func Session() *Request {
+	return defaultRequest()
 	//dros := defaultRequestOptions()
 	//for _, opt := range opts {
 	//	opt.apply(&dros) //这里是塞入实体，针对实体赋值
@@ -95,65 +113,65 @@ func Session() *requests {
 //--------------------------------------------------------------------------------------------------------------
 
 // NewRequestOptions请求参数 采集基本接口
-type requestsInterface interface {
-	apply(*requests)
+type requestInterface interface {
+	apply(*Request)
 }
 
 //funcRequestOption 定义面的接口使用
 type funcRequests struct {
-	anyfun func(*requests)
+	anyfun func(*Request)
 }
 
 //apply 实现上面的接口，使用这个匿名函数，针对传入的对象，进行操作
-func (fro *funcRequests) apply(ro *requests) {
+func (fro *funcRequests) apply(ro *Request) {
 	fro.anyfun(ro)
 }
 
 //newFuncRequestOption 新建一个匿名函数实体。
 //返回接口地址
-func newFuncRequests(anonfun func(ro *requests)) *funcRequests {
+func newFuncRequests(anonfun func(ro *Request)) *funcRequests {
 	return &funcRequests{
 		anyfun: anonfun,
 	}
 }
 
 //OptRefererUrl 设置来源地址，返回接口指针(新建一个函数，不执行的，返回他的地址而已)
-func OptRefererUrl(refererUrl string) requestsInterface {
+func OptRefererUrl(refererUrl string) requestInterface {
 	//return &funcRequests{
 	//	anyfun: func(ro *requests) {
 	//		ro.RefererUrl = refererUrl
 	//	},
 	//}
 	//下面更简洁而已，上门原理一致
-	return newFuncRequests(func(ro *requests) {
+	return newFuncRequests(func(ro *Request) {
 		ro.RefererUrl = refererUrl
 	})
 }
 
 //OptHeader 设置发送头
-func OptHeader(header map[string]string) requestsInterface {
-	return newFuncRequests(func(ro *requests) {
+func OptHeader(header map[string]string) requestInterface {
+	return newFuncRequests(func(ro *Request) {
 		ro.Header = header
 	})
 }
 
 //OptRedirectCount 重定向次数
-func OptRedirectCount(redirectCount int) requestsInterface {
-	return newFuncRequests(func(ro *requests) {
+func OptRedirectCount(redirectCount int) requestInterface {
+	return newFuncRequests(func(ro *Request) {
 		ro.RedirectCount = redirectCount
 	})
 }
 
 //OptCookie 设置当前Url cookie
-func OptCookie(cookie string) requestsInterface {
-	return newFuncRequests(func(ro *requests) {
+func OptCookie(cookie string) requestInterface {
+	return newFuncRequests(func(ro *Request) {
 		ro.Cookie = cookie
 	})
 }
 
 //OptCookieAll 设置当前Url+根Url cookie
-func OptCookieAll(cookieAll string) requestsInterface {
-	return newFuncRequests(func(ro *requests) {
+func OptCookieAll(cookieAll string) requestInterface {
+	return newFuncRequests(func(ro *Request) {
 		ro.CookieAll = cookieAll
 	})
 }

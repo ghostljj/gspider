@@ -9,7 +9,7 @@ import (
 )
 
 // HttpInfo  返回信息结构
-type response struct {
+type Response struct {
 	Encode string // 编码 默认 Auto 中文 GB18030  或 UTF-8
 	//发送 请求 的Url
 	reqUrl string
@@ -29,11 +29,13 @@ type response struct {
 	resUrl string
 	//返回 响应 状态码
 	statusCode int
+	//请求对象
+	req *Request
 }
 
 //NewHttpInfo  新建一个httpInfo
-func newResponse() *response {
-	res := response{}
+func newResponse(req *Request) *Response {
+	res := Response{}
 	res.Encode = "Auto"
 	//清空 请求 Url
 	res.reqUrl = ""
@@ -56,56 +58,58 @@ func newResponse() *response {
 	res.resBytes = []byte{}
 	//清空 错误信息
 	res.err = nil
+	//请求对象赋值
+	res.req = req
 	return &res
 }
 
 //GetReqHeader 获取 请求 头信息
-func (res *response) GetReqHeader() http.Header {
+func (res *Response) GetReqHeader() http.Header {
 	return res.reqHeader
 }
 
 //GetResHeader 获取 响应 头信息
-func (res *response) GetResHeader() http.Header {
+func (res *Response) GetResHeader() http.Header {
 	return res.resHeader
 }
 
 //GetResCookies 获取 响应 Cookies
-func (res *response) GetResCookies() []*http.Cookie {
+func (res *Response) GetResCookies() []*http.Cookie {
 	return res.resCookies
 }
 
 //GetReqUrl 获取 请求 Url
-func (res *response) GetReqUrl() string {
+func (res *Response) GetReqUrl() string {
 	return res.reqUrl
 }
 
 //GetReqPostData 获取 请求 Post 信息
-func (res *response) GetReqPostData() string {
+func (res *Response) GetReqPostData() string {
 	return res.reqPostData
 }
 
 //GetResUrl 获取 响应 后的Url
-func (res *response) GetResUrl() string {
+func (res *Response) GetResUrl() string {
 	return res.resUrl
 }
 
 //GetStatusCode 获取 响应 状态码
-func (res *response) GetStatusCode() int {
+func (res *Response) GetStatusCode() int {
 	return res.statusCode
 }
 
 //GetBytes 获取 响应 byte
-func (res *response) GetBytes() []byte {
+func (res *Response) GetBytes() []byte {
 	return res.resBytes
 }
 
 //GetErr 返回错误
-func (res *response) GetErr() error {
+func (res *Response) GetErr() error {
 	return res.err
 }
 
 //GetContent 获取 响应 内容
-func (res *response) GetContent() string {
+func (res *Response) GetContent() string {
 	bodyByte := bytes.TrimPrefix(res.resBytes, []byte("\xef\xbb\xbf")) // Or []byte{239, 187, 191}
 	bodyStr := string(bodyByte)
 	contentType := strings.ToLower(res.resHeader.Get("Content-Type"))

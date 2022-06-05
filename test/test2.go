@@ -8,7 +8,7 @@ import (
 func main() {
 
 	var strUrl string
-	strUrl = "http://2022.ip138.com/ic.asp"
+	strUrl = "https://2022.ip138.com/ic.asp"
 
 	//strUrl = "http://www.baidu.com"
 	//strUrl = "http://www.google.com"
@@ -32,14 +32,13 @@ func main() {
 		fmt.Println()
 		fmt.Println()
 		fmt.Println(res.GetContent())
-		res.PrintReqHeader("")     //打印 请求 头信息
-		res.PrintReqPostData()     // 打印 请求 PostData
-		res.PrintResHeader("")     //打印 响应 头信息
-		res.PrintResSetCookie()    //打印 响应 头信息SetCookie
-		res.PrintResUrl()          // 打印 响应 最后的Url
-		res.PrintCookies()         // 获取 响应 最后的Url 的 Cookie
-		req.PrintCookieJar(strUrl) // 获取 访问Url  的 Cookie
-		res.PrintStatusCode()      // 打印 响应 状态码
+		res.PrintReqHeader("")            //打印 请求 头信息
+		res.PrintReqPostData()            // 打印 请求 PostData
+		res.PrintResHeader("")            //打印 响应 头信息
+		res.PrintResSetCookie()           //打印 响应 头信息SetCookie
+		res.PrintResUrl()                 // 打印 响应 最后的Url
+		res.PrintCookies(res.GetResUrl()) // 获取 响应 最后的Url 的 Cookie
+		res.PrintStatusCode()             // 打印 响应 状态码
 
 	}
 }
