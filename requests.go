@@ -35,7 +35,7 @@ type SendCookieAll map[string]string
 //	}
 //}
 
-type requests struct {
+type request struct {
 	myMutex       sync.Mutex        //本对象的同步对象
 	LocalIP       string            //本地 网络 IP
 	RefererUrl    string            //来源url
@@ -61,8 +61,8 @@ type requests struct {
 }
 
 //defaultRequestOptions 默认配置参数
-func defaultRequestOptions() *requests {
-	ros := requests{
+func defaultRequestOptions() *request {
+	ros := request{
 		isPostJson:    -1,
 		isGetJson:     -1,
 		Header:        make(map[string]string),
@@ -83,7 +83,7 @@ func defaultRequestOptions() *requests {
 	return &ros
 }
 
-func Session() *requests {
+func Session() *request {
 	return defaultRequestOptions()
 	//dros := defaultRequestOptions()
 	//for _, opt := range opts {
@@ -96,22 +96,22 @@ func Session() *requests {
 
 // NewRequestOptions请求参数 采集基本接口
 type requestsInterface interface {
-	apply(*requests)
+	apply(*request)
 }
 
 //funcRequestOption 定义面的接口使用
 type funcRequests struct {
-	anyfun func(*requests)
+	anyfun func(*request)
 }
 
 //apply 实现上面的接口，使用这个匿名函数，针对传入的对象，进行操作
-func (fro *funcRequests) apply(ro *requests) {
+func (fro *funcRequests) apply(ro *request) {
 	fro.anyfun(ro)
 }
 
 //newFuncRequestOption 新建一个匿名函数实体。
 //返回接口地址
-func newFuncRequests(anonfun func(ro *requests)) *funcRequests {
+func newFuncRequests(anonfun func(ro *request)) *funcRequests {
 	return &funcRequests{
 		anyfun: anonfun,
 	}
@@ -125,35 +125,35 @@ func OptRefererUrl(refererUrl string) requestsInterface {
 	//	},
 	//}
 	//下面更简洁而已，上门原理一致
-	return newFuncRequests(func(ro *requests) {
+	return newFuncRequests(func(ro *request) {
 		ro.RefererUrl = refererUrl
 	})
 }
 
 //OptHeader 设置发送头
 func OptHeader(header map[string]string) requestsInterface {
-	return newFuncRequests(func(ro *requests) {
+	return newFuncRequests(func(ro *request) {
 		ro.Header = header
 	})
 }
 
 //OptRedirectCount 重定向次数
 func OptRedirectCount(redirectCount int) requestsInterface {
-	return newFuncRequests(func(ro *requests) {
+	return newFuncRequests(func(ro *request) {
 		ro.RedirectCount = redirectCount
 	})
 }
 
 //OptCookie 设置当前Url cookie
 func OptCookie(cookie string) requestsInterface {
-	return newFuncRequests(func(ro *requests) {
+	return newFuncRequests(func(ro *request) {
 		ro.Cookie = cookie
 	})
 }
 
 //OptCookieAll 设置当前Url+根Url cookie
 func OptCookieAll(cookieAll string) requestsInterface {
-	return newFuncRequests(func(ro *requests) {
+	return newFuncRequests(func(ro *request) {
 		ro.CookieAll = cookieAll
 	})
 }

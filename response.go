@@ -29,10 +29,12 @@ type response struct {
 	resUrl string
 	//返回 响应 状态码
 	statusCode int
+	//请求对象
+	req *request
 }
 
 //NewHttpInfo  新建一个httpInfo
-func newResponse() *response {
+func newResponse(req *request) *response {
 	res := response{}
 	res.Encode = "Auto"
 	//清空 请求 Url
@@ -56,6 +58,8 @@ func newResponse() *response {
 	res.resBytes = []byte{}
 	//清空 错误信息
 	res.err = nil
+	//请求对象赋值
+	res.req = req
 	return &res
 }
 

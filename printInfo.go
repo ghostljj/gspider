@@ -7,14 +7,14 @@ import (
 
 //PrintInfo
 func (res *response) PrintInfo() {
-	res.PrintReqHeader("")  // 打印 请求  信息
-	res.PrintResHeader("")  // 打印 响应 头信息
-	res.PrintResSetCookie() // 打印 响应 头信息SetCookie
-	res.PrintReqUrl()       // 打印 请求 Url
-	res.PrintReqPostData()  // 打印 请求 PostData
-	res.PrintResUrl()       // 打印 响应 最后的Url
-	res.PrintCookies()      // 获取 响应 最后的Url 的 SetCookie
-	res.PrintStatusCode()   // 打印 响应 状态码
+	res.PrintReqHeader("")            // 打印 请求  信息
+	res.PrintResHeader("")            // 打印 响应 头信息
+	res.PrintResSetCookie()           // 打印 响应 头信息SetCookie
+	res.PrintReqUrl()                 // 打印 请求 Url
+	res.PrintReqPostData()            // 打印 请求 PostData
+	res.PrintResUrl()                 // 打印 响应 最后的Url
+	res.PrintCookies(res.GetResUrl()) // 获取 响应 最后的Url 的cookie
+	res.PrintStatusCode()             // 打印 响应 状态码
 }
 
 //PrintReqHeader 打印 请求 头信息 查看信息用
@@ -88,37 +88,17 @@ func (res *response) PrintStatusCode() {
 }
 
 //PrintCookies 打印CookieJar
-func (res *response) PrintCookies() {
-	fmt.Println("------------------  S SetCookies ==> From(" + res.resUrl + ")")
-	fmt.Println("------------------  使用 res.GetResCookies() map[string]string")
-	defer func() {
-		fmt.Println("------------------------------------------------------")
-		fmt.Println("")
-	}()
-	if res.resCookies == nil {
-		return
-	}
-	mapCookieHost := GetCookiesMap(res.resCookies)
-	for k, v := range *mapCookieHost {
-		fmt.Print("------------------          " + k)
-		fmt.Print(" : ")
-		fmt.Println(v)
-	}
-	return
-}
-
-//PrintCookies 打印CookieJar
-func (req *requests) PrintCookieJar(strUrl string) {
+func (res *response) PrintCookies(strUrl string) {
 	fmt.Println("------------------  S 全局CookieJar  ==> From(" + strUrl + ")")
-	fmt.Println("------------------  使用 GetCookiesJarMap(http.CookieJar,strUrl string) map[string]string")
+	fmt.Println("------------------  使用 res.req.GetCookiesJarMap(strUrl string) map[string]string")
 	defer func() {
 		fmt.Println("------------------------------------------------------")
 		fmt.Println("")
 	}()
-	if req.cookieJar == nil {
+	if res.req.cookieJar == nil {
 		return
 	}
-	mapCookieHost := GetCookiesJarMap(req.cookieJar, strUrl)
+	mapCookieHost := res.req.GetCookiesJarMap(strUrl)
 	for k, v := range *mapCookieHost {
 		fmt.Print("------------------          " + k)
 		fmt.Print(" : ")
