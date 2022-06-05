@@ -8,21 +8,19 @@ import (
 func main() {
 
 	var strUrl string
-	strUrl = "http://2022.ip138.com/ic.asp"
-
-	//strUrl = "http://www.baidu.com"
-	//strUrl = "http://www.google.com"
-
-	//ps := u.GetProxy(false, 0) //可能返回nil
-	//if ps != nil {             //设置代理
-	//  ss.SetHttpProxy(fmt.Sprintf("http://%s:%d", ps.IP, ps.PORT))
-	//}
+	strUrl = "https://192.168.211.211:9200/book/_search"
+	strPostData := `{
+    "from": 0,
+    "size": 200,
+    "query": {
+        "match_all": {}
+    }
+}`
 
 	req := gs.Session()
 
-	res := req.Get(strUrl, gs.OptRefererUrl("http://www.abc.com"),
-		gs.OptHeader(map[string]string{"hkey1": "hvalue1", "hkey2": "hvalue2"}),
-		gs.OptCookie("abc=123;ddd=222"))
+	res := req.GetJsonR(strUrl, strPostData,
+		gs.OptHeader(map[string]string{"Authorization": "Basic ZWxhc3RpYzoxMjMzMjE="}))
 
 	if res.GetErr() != nil {
 		fmt.Println("Error=" + res.GetErr().Error())

@@ -9,8 +9,8 @@ import (
 )
 
 // HttpInfo  返回信息结构
-type RetHttpInfos struct {
-
+type response struct {
+	Encode string // 编码 默认 Auto 中文 GB18030  或 UTF-8
 	//发送 请求 的Url
 	reqUrl string
 	//发送 请求 的内容
@@ -28,99 +28,99 @@ type RetHttpInfos struct {
 	//返回 响应 后的Url
 	resUrl string
 	//返回 响应 状态码
-	resStatusCode int
+	statusCode int
 }
 
 //NewHttpInfo  新建一个httpInfo
-func newRetHttpInfos() RetHttpInfos {
-	h := RetHttpInfos{}
+func newResponse() *response {
+	res := response{}
+	res.Encode = "Auto"
 	//清空 请求 Url
-	h.reqUrl = ""
+	res.reqUrl = ""
 	//清空 请求 Post
-	h.reqPostData = ""
+	res.reqPostData = ""
 
 	//清空 响应 头信息
-	h.resHeader = nil
+	res.resHeader = nil
 	//清空 请求 头信息
-	h.reqHeader = nil
+	res.reqHeader = nil
 	//清空 响应 SetCookie
 	//h.resCookies = s.resCookies[:0]
-	h.resCookies = []*http.Cookie{}
+	res.resCookies = []*http.Cookie{}
 	//清空 响应 后的Url
-	h.resUrl = ""
+	res.resUrl = ""
 
 	//清空
-	h.resStatusCode = 0
+	res.statusCode = 0
 	//清空返回内容
-	h.resBytes = []byte{}
+	res.resBytes = []byte{}
 	//清空 错误信息
-	h.err = nil
-	return h
+	res.err = nil
+	return &res
 }
 
 //GetReqHeader 获取 请求 头信息
-func (ros *requests) GetReqHeader() http.Header {
-	return ros.retHttpInfos.reqHeader
+func (res *response) GetReqHeader() http.Header {
+	return res.reqHeader
 }
 
 //GetResHeader 获取 响应 头信息
-func (ros *requests) GetResHeader() http.Header {
-	return ros.retHttpInfos.resHeader
+func (res *response) GetResHeader() http.Header {
+	return res.resHeader
 }
 
 //GetResCookies 获取 响应 Cookies
-func (ros *requests) GetResCookies() []*http.Cookie {
-	return ros.retHttpInfos.resCookies
+func (res *response) GetResCookies() []*http.Cookie {
+	return res.resCookies
 }
 
 //GetReqUrl 获取 请求 Url
-func (ros *requests) GetReqUrl() string {
-	return ros.retHttpInfos.reqUrl
+func (res *response) GetReqUrl() string {
+	return res.reqUrl
 }
 
 //GetReqPostData 获取 请求 Post 信息
-func (ros *requests) GetReqPostData() string {
-	return ros.retHttpInfos.reqPostData
+func (res *response) GetReqPostData() string {
+	return res.reqPostData
 }
 
 //GetResUrl 获取 响应 后的Url
-func (ros *requests) GetResUrl() string {
-	return ros.retHttpInfos.resUrl
+func (res *response) GetResUrl() string {
+	return res.resUrl
 }
 
-//GetResStatusCode 获取 响应 状态码
-func (ros *requests) GetResStatusCode() int {
-	return ros.retHttpInfos.resStatusCode
-}
-
-//GetErr 返回错误
-func (ros *requests) GetErr() error {
-	return ros.retHttpInfos.err
+//GetStatusCode 获取 响应 状态码
+func (res *response) GetStatusCode() int {
+	return res.statusCode
 }
 
 //GetBytes 获取 响应 byte
-func (ros *requests) GetBytes() []byte {
-	return ros.retHttpInfos.resBytes
+func (res *response) GetBytes() []byte {
+	return res.resBytes
+}
+
+//GetErr 返回错误
+func (res *response) GetErr() error {
+	return res.err
 }
 
 //GetContent 获取 响应 内容
-func (ros *requests) GetContent() string {
-
-	bodyByte := bytes.TrimPrefix(ros.retHttpInfos.resBytes, []byte("\xef\xbb\xbf")) // Or []byte{239, 187, 191}
+func (res *response) GetContent() string {
+	bodyByte := bytes.TrimPrefix(res.resBytes, []byte("\xef\xbb\xbf")) // Or []byte{239, 187, 191}
 	bodyStr := string(bodyByte)
-	contentType := strings.ToLower(ros.GetResHeader().Get("Content-Type"))
+	contentType := strings.ToLower(res.resHeader.Get("Content-Type"))
 	if strings.Index(contentType, "image/") <= -1 {
 		//自动/手动 编码
 		var charset string
-		if strings.ToLower(ros.Encode) == "auto" {
-			autoEncode, err := chardet.NewTextDetector().DetectBest(ros.retHttpInfos.resBytes)
+		if strings.ToLower(res.Encode) == "auto" {
+			autoEncode, err := chardet.NewTextDetector().DetectBest(res.resBytes)
 			if err == nil {
 				charset = autoEncode.Charset
 			} else {
-				ros.retHttpInfos.err = err
+				res.err = err
 			}
 		} else {
-			charset = ros.Encode
+			charset = res.Encode
 		}
 		//进行编码
 		if charset != "" {

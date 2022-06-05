@@ -41,17 +41,26 @@ func GetCookieJson(strUrl, strCookie string) string {
 	return jsonCookies
 }
 
-//GetCookiesMap 获取 cookieJar 的 map[string]string
-func (ros *requests) GetCookiesMap(strUrl string) map[string]string {
-	URI, _ := url.Parse(strUrl)
-	gCurCookies := ros.cookieJar.Cookies(URI)
+//GetCookiesJarMap 获取 cookieJar 的 map[string]string
+func GetCookiesJarMap(cookieJar http.CookieJar, strUrl string) *map[string]string {
 	mapCookies := make(map[string]string)
-	cookieNum := len(gCurCookies)
-	for i := 0; i < cookieNum; i++ {
-		var curCk *http.Cookie = gCurCookies[i]
-		mapCookies[curCk.Name] = curCk.Value
+	if cookieJar == nil {
+		return &mapCookies
 	}
-	return mapCookies
+	URI, _ := url.Parse(strUrl)
+	return GetCookiesMap(cookieJar.Cookies(URI))
+}
+
+//GetCookiesMap 获取Cook的map[string]string
+func GetCookiesMap(cookies []*http.Cookie) *map[string]string {
+	mapCookies := make(map[string]string)
+	if cookies == nil {
+		return &mapCookies
+	}
+	for _, cookie := range cookies {
+		mapCookies[cookie.Name] = cookie.Value
+	}
+	return &mapCookies
 }
 
 //Cookies 获取Cookie
@@ -60,8 +69,8 @@ func (ros *requests) Cookies(strUrl string) string {
 		return ""
 	}
 	var str string
-	mapCookieHost := ros.GetCookiesMap(strUrl)
-	for k, v := range mapCookieHost {
+	mapCookieHost := GetCookiesJarMap(ros.cookieJar, strUrl)
+	for k, v := range *mapCookieHost {
 		str += k + "=" + v + ";"
 	}
 	return str
@@ -74,12 +83,12 @@ func (ros *requests) CookiesAll(strUrl string) string {
 	}
 	URI, _ := url.Parse(strUrl)
 	var str string
-	mapCookie := ros.GetCookiesMap(strUrl)
-	mapCookieHost := ros.GetCookiesMap(URI.Scheme + "://" + URI.Host)
-	for k, v := range mapCookie {
-		mapCookieHost[k] = v
+	mapCookie := GetCookiesJarMap(ros.cookieJar, strUrl)
+	mapCookieHost := GetCookiesJarMap(ros.cookieJar, URI.Scheme+"://"+URI.Host)
+	for k, v := range *mapCookie {
+		(*mapCookieHost)[k] = v
 	}
-	for k, v := range mapCookieHost {
+	for k, v := range *mapCookieHost {
 		str += k + "=" + v + ";"
 	}
 	return str
@@ -88,15 +97,6 @@ func (ros *requests) CookiesAll(strUrl string) string {
 //ResetCookie 重置Cookie
 func (ros *requests) ResetCookie() {
 	ros.cookieJar, _ = cookiejar.New(nil)
-}
-
-//SetCookiesAll 设置根url和当前url cookie
-func (ros *requests) SetCookiesAll(strUrl, strCookie string) {
-
-	URI, _ := url.Parse(strUrl)
-	strHostUrl := URI.Scheme + "://" + URI.Host
-	ros.SetCookies(strUrl, strCookie)
-	ros.SetCookies(strHostUrl, strCookie)
 }
 
 //SetCookies 设置当前url Cookie
@@ -124,6 +124,15 @@ func (ros *requests) SetCookies(strUrl, strCookie string) {
 		addCookies = append(addCookies, cookieItem)
 	}
 	ros.cookieJar.SetCookies(URI, addCookies) //这里设置的cookie 会自动合并到cookieJar
+}
+
+//SetCookiesAll 设置根url和当前url cookie
+func (ros *requests) SetCookiesAll(strUrl, strCookie string) {
+
+	URI, _ := url.Parse(strUrl)
+	strHostUrl := URI.Scheme + "://" + URI.Host
+	ros.SetCookies(strUrl, strCookie)
+	ros.SetCookies(strHostUrl, strCookie)
 }
 
 //SetCookiesToUrl 把老Url的cookie 导入到新Url的cookie

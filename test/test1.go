@@ -2,28 +2,32 @@ package main
 
 import (
 	"fmt"
+	"github.com/asmcos/requests"
 	gs "github.com/ghostljj/gspider"
 )
 
 func main() {
 
+	resp, err := requests.Get("http://www.zhanluejia.net.cn")
+	if err != nil {
+		return
+	}
+	println(resp.Text())
+
 	var strUrl string
 	strUrl = "http://2022.ip138.com/ic.asp"
-
 	//strUrl = "http://www.baidu.com"
 	//strUrl = "http://www.google.com"
 
-	//ps := u.GetProxy(false, 0) //可能返回nil
-	//if ps != nil {             //设置代理
-	//  ss.SetHttpProxy(fmt.Sprintf("http://%s:%d", ps.IP, ps.PORT))
-	//}
-
 	req := gs.Session()
+	req.RefererUrl = "http://www.baidu.com"
+	req.Cookie = "aa=11;bb=22"
+	req.Header = map[string]string{"h1": "v1", "h2": "v2"}
+	//ss.SetHttpProxy(fmt.Sprintf("http://%s:%d", "127.0.0.1", 10809))
+	//ss.SetSocks5Proxy("127.0.0.1:10808", "", "")
 
-	res := req.Get(strUrl, gs.OptRefererUrl("http://www.abc.com"),
-		gs.OptHeader(map[string]string{"hkey1": "hvalue1", "hkey2": "hvalue2"}),
-		gs.OptCookie("abc=123;ddd=222"))
-
+	res := req.Get(strUrl)
+	res.Encode = "utf-8"
 	if res.GetErr() != nil {
 		fmt.Println("Error=" + res.GetErr().Error())
 	} else {
@@ -32,7 +36,8 @@ func main() {
 		fmt.Println()
 		fmt.Println()
 		fmt.Println(res.GetContent())
-		res.PrintReqHeader("")     //打印 请求 头信息
+		res.PrintReqHeader("") //打印 请求 头信息
+		res.GetReqHeader()
 		res.PrintReqPostData()     // 打印 请求 PostData
 		res.PrintResHeader("")     //打印 响应 头信息
 		res.PrintResSetCookie()    //打印 响应 头信息SetCookie

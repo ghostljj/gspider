@@ -8,6 +8,33 @@ import (
 
 //--------------------------------------------------------------------------------------------------------------
 
+type SendHeader map[string]string
+type SendFromData map[string]string
+type SendJsonData string
+type SendData string
+type SendCookie map[string]string
+type SendCookieAll map[string]string
+
+//编译不成功。
+//func Test(args ...interface {
+//	SendHeader | SendFromData | SendJsonData | SendData | SendCookie | SendCookieAll
+//}) {
+//	for _, arg := range args {
+//		switch a := any(arg).(type) {
+//		case SendCookie:
+//			for k, v := range a {
+//				fmt.Println(k, v)
+//			}
+//			// arg is "GET" params
+//			// ?title=website&id=1860&from=login
+//		case SendJsonData:
+//			fmt.Println(a, "字符串")
+//		default:
+//			Log.Printf("未处理 %s 参数\n", a)
+//		}
+//	}
+//}
+
 type requests struct {
 	myMutex       sync.Mutex        //本对象的同步对象
 	LocalIP       string            //本地 网络 IP
@@ -19,7 +46,6 @@ type requests struct {
 	CookieAll     string            //cookieAll  根url+单独url
 	RedirectCount int               //重定向次数
 
-	Encode           string        // 编码 默认 Auto 中文 GB18030  或 UTF-8
 	Timeout          time.Duration // 连接超时
 	ReadWriteTimeout time.Duration // 读写超时
 	KeepAliveTimeout time.Duration // 保持连接超时
@@ -32,8 +58,6 @@ type requests struct {
 	cookieJar http.CookieJar
 	//发送 请求 头
 	defaultHeaderTemplate map[string]string
-	//发送后接收的信息
-	retHttpInfos RetHttpInfos
 }
 
 //defaultRequestOptions 默认配置参数
@@ -44,12 +68,10 @@ func defaultRequestOptions() *requests {
 		Header:        make(map[string]string),
 		RedirectCount: 10,
 
-		Encode:           "Auto",
 		Timeout:          30,
 		ReadWriteTimeout: 30,
 		KeepAliveTimeout: 30,
 	}
-	ros.retHttpInfos = newRetHttpInfos()
 
 	ros.ResetCookie()
 	ros.defaultHeaderTemplate = make(map[string]string)
@@ -89,7 +111,7 @@ func (fro *funcRequests) apply(ro *requests) {
 
 //newFuncRequestOption 新建一个匿名函数实体。
 //返回接口地址
-func newFuncRequests(anonfun func(*requests)) *funcRequests {
+func newFuncRequests(anonfun func(ro *requests)) *funcRequests {
 	return &funcRequests{
 		anyfun: anonfun,
 	}
@@ -97,9 +119,9 @@ func newFuncRequests(anonfun func(*requests)) *funcRequests {
 
 //OptRefererUrl 设置来源地址，返回接口指针(新建一个函数，不执行的，返回他的地址而已)
 func OptRefererUrl(refererUrl string) requestsInterface {
-	//return &newFuncRequests{
-	//	anyfun: func(ro *RequestOptions) {
-	//		ro.refererUrl = refererUrl
+	//return &funcRequests{
+	//	anyfun: func(ro *requests) {
+	//		ro.RefererUrl = refererUrl
 	//	},
 	//}
 	//下面更简洁而已，上门原理一致

@@ -36,90 +36,90 @@ func (ros *requests) setRequestOptions(strUrl string, opts ...requestsInterface)
 	return
 }
 
-func (ros *requests) send(strMethod, strUrl, strPostData string, opts ...requestsInterface) *requests {
+func (ros *requests) request(strMethod, strUrl, strPostData string, opts ...requestsInterface) *response {
 	refererUrl, header, redirectCount := ros.setRequestOptions(strUrl, opts...)
-	return ros.request(strMethod, strUrl, strPostData, refererUrl, header, redirectCount)
+	return ros.send(strMethod, strUrl, strPostData, refererUrl, header, redirectCount)
 }
 
-func (ros *requests) Get(strUrl string, opts ...requestsInterface) *requests {
-	return ros.send("GET", strUrl, "", opts...)
+func (ros *requests) Get(strUrl string, opts ...requestsInterface) *response {
+	return ros.request("GET", strUrl, "", opts...)
 }
 
-func (ros *requests) GetJson(strUrl string, opts ...requestsInterface) *requests {
+func (ros *requests) GetJson(strUrl string, opts ...requestsInterface) *response {
 	ros.isGetJson = 1
-	return ros.send("GET", strUrl, "", opts...)
+	return ros.request("GET", strUrl, "", opts...)
 }
-func (ros *requests) GetJsonR(strUrl, strPostData string, opts ...requestsInterface) *requests {
+func (ros *requests) GetJsonR(strUrl, strPostData string, opts ...requestsInterface) *response {
 	ros.isGetJson = 1
 	if strPostData != "" {
 		ros.isPostJson = 1
 	}
-	return ros.send("GET", strUrl, strPostData, opts...)
+	return ros.request("GET", strUrl, strPostData, opts...)
 }
 
-func (ros *requests) DeleteJson(strUrl string, opts ...requestsInterface) *requests {
+func (ros *requests) DeleteJson(strUrl string, opts ...requestsInterface) *response {
 	ros.isGetJson = 1
-	return ros.send("DELETE", strUrl, "", opts...)
+	return ros.request("DELETE", strUrl, "", opts...)
 }
 
 //Post 方法
-func (ros *requests) Post(strUrl, strPostData string, opts ...requestsInterface) *requests {
-	return ros.send("POST", strUrl, strPostData, opts...)
+func (ros *requests) Post(strUrl, strPostData string, opts ...requestsInterface) *response {
+	return ros.request("POST", strUrl, strPostData, opts...)
 }
-func (ros *requests) PostJson(strUrl, strPostData string, opts ...requestsInterface) *requests {
+func (ros *requests) PostJson(strUrl, strPostData string, opts ...requestsInterface) *response {
 	ros.isPostJson = 1
 	ros.isGetJson = 1
-	return ros.send("POST", strUrl, strPostData, opts...)
+	return ros.request("POST", strUrl, strPostData, opts...)
 }
 
 //Put Put方法
-func (ros *requests) Put(strUrl, strPostData string, opts ...requestsInterface) *requests {
-	return ros.send("PUT", strUrl, strPostData, opts...)
+func (ros *requests) Put(strUrl, strPostData string, opts ...requestsInterface) *response {
+	return ros.request("PUT", strUrl, strPostData, opts...)
 }
-func (ros *requests) PutJson(strUrl, strPostData string, opts ...requestsInterface) *requests {
+func (ros *requests) PutJson(strUrl, strPostData string, opts ...requestsInterface) *response {
 	ros.isGetJson = 1
 	ros.isPostJson = 1
-	return ros.send("PUT", strUrl, strPostData, opts...)
+	return ros.request("PUT", strUrl, strPostData, opts...)
 }
 
 //获取img src 值
-func (ros *requests) GetBase64ImageSrc(strUrl string, opts ...requestsInterface) string {
-	strContent := ros.GetBase64Image(strUrl, opts...)
-	if ros.GetErr() == nil {
-		contentType := ros.GetResHeader().Get("Content-Type")
+func (ros *requests) GetBase64ImageSrc(strUrl string, opts ...requestsInterface) (*response, string) {
+	res, strContent := ros.GetBase64Image(strUrl, opts...)
+	if res.GetErr() == nil {
+		contentType := res.GetResHeader().Get("Content-Type")
 		strContent = "data:" + contentType + ";base64," + strContent + ""
 	}
-	return strContent
+	return res, strContent
 }
 
 //获取Base64 字符串
-func (ros *requests) GetBase64Image(strUrl string, opts ...requestsInterface) string {
+func (ros *requests) GetBase64Image(strUrl string, opts ...requestsInterface) (*response, string) {
 	refererUrl, header, redirectCount := ros.setRequestOptions(strUrl, opts...)
-	ros.request("GET", strUrl, "", refererUrl, header, redirectCount)
-	return base64.StdEncoding.EncodeToString(ros.GetBytes())
+	res := ros.send("GET", strUrl, "", refererUrl, header, redirectCount)
+	return res, base64.StdEncoding.EncodeToString(res.GetBytes())
 }
 
 // SendRedirect 发送请求
 // strMethod GET POST PUT ...
-func (ros *requests) request(strMethod, strUrl, strPostData, refererUrl string, header map[string]string, redirectCount int) *requests {
+func (ros *requests) send(strMethod, strUrl, strPostData, refererUrl string, header map[string]string, redirectCount int) *response {
 
-	ros.retHttpInfos = newRetHttpInfos()
+	res := newResponse()
 
 	strMethod = strings.ToUpper(strMethod)
 	reqURI, err := url.Parse(strUrl)
 	if err != nil {
-		ros.retHttpInfos.err = err
-		return ros
+		res.err = err
+		return res
 	}
-	ros.retHttpInfos.reqUrl = reqURI.String()
+	res.reqUrl = reqURI.String()
 
 	httpClient := &http.Client{}
-	ros.retHttpInfos.reqPostData = strPostData
+	res.reqPostData = strPostData
 	bytesPostData := bytes.NewBuffer([]byte(strPostData))
-	httpReq, err := http.NewRequest(strMethod, ros.retHttpInfos.reqUrl, bytesPostData)
+	httpReq, err := http.NewRequest(strMethod, strUrl, bytesPostData)
 	if err != nil {
-		ros.retHttpInfos.err = err
-		return ros
+		res.err = err
+		return res
 	}
 
 	ts := &http.Transport{}
@@ -134,8 +134,8 @@ func (ros *requests) request(strMethod, strUrl, strPostData, refererUrl string, 
 		if len(ros.LocalIP) > 0 { //设置本地网络ip
 			localAddr, err := net.ResolveIPAddr("ip", ros.LocalIP)
 			if err != nil {
-				ros.retHttpInfos.err = err
-				return ros
+				res.err = err
+				return res
 			}
 			localTCPAddr := net.TCPAddr{
 				IP: localAddr.IP,
@@ -153,8 +153,8 @@ func (ros *requests) request(strMethod, strUrl, strPostData, refererUrl string, 
 		if len(ros.HttpProxyInfo) > 0 { //http 代理设置
 			proxyUrl, err := url.Parse(ros.HttpProxyInfo)
 			if err != nil {
-				ros.retHttpInfos.err = err
-				return ros
+				res.err = err
+				return res
 			}
 			ts.Proxy = http.ProxyURL(proxyUrl)
 			ts.DialContext = (netDialer).DialContext
@@ -169,8 +169,8 @@ func (ros *requests) request(strMethod, strUrl, strPostData, refererUrl string, 
 				netDialer,
 			)
 			if err != nil {
-				ros.retHttpInfos.err = err
-				return ros
+				res.err = err
+				return res
 			}
 			ts.Dial = (netDialerNew).Dial //SOCKS5 必须使用这个。。。
 		}
@@ -224,8 +224,8 @@ func (ros *requests) request(strMethod, strUrl, strPostData, refererUrl string, 
 
 	httpRes, err := httpClient.Do(httpReq)
 	if err != nil {
-		ros.retHttpInfos.err = err
-		return ros
+		res.err = err
+		return res
 	}
 
 	defer httpRes.Body.Close()
@@ -236,8 +236,8 @@ func (ros *requests) request(strMethod, strUrl, strPostData, refererUrl string, 
 		case "gzip":
 			reader, err = gzip.NewReader(httpRes.Body)
 			if err != nil {
-				ros.retHttpInfos.err = err
-				return ros
+				res.err = err
+				return res
 			}
 		case "deflate":
 			reader = flate.NewReader(httpRes.Body)
@@ -246,23 +246,23 @@ func (ros *requests) request(strMethod, strUrl, strPostData, refererUrl string, 
 		}
 	}
 
-	if ros.retHttpInfos.resBytes, err = pedanticReadAll(reader); err != nil {
-		ros.retHttpInfos.err = err
-		return ros
+	if res.resBytes, err = pedanticReadAll(reader); err != nil {
+		res.err = err
+		return res
 	}
 
 	//返回 响应 Cookies
-	ros.retHttpInfos.resCookies = httpRes.Cookies()
+	res.resCookies = httpRes.Cookies()
 	//设置 响应 头信息
-	ros.retHttpInfos.resHeader = httpRes.Header
+	res.resHeader = httpRes.Header
 	//设置 请求 头信息
-	ros.retHttpInfos.reqHeader = httpRes.Request.Header
+	res.reqHeader = httpRes.Request.Header
 	//设置 响应 后的Url
-	ros.retHttpInfos.resUrl = httpRes.Request.URL.String()
+	res.resUrl = httpRes.Request.URL.String()
 	//设置响应状态码
-	ros.retHttpInfos.resStatusCode = httpRes.StatusCode
+	res.statusCode = httpRes.StatusCode
 
-	return ros
+	return res
 }
 
 //pedanticReadAll 读取所有字节
