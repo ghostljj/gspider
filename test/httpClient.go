@@ -3,25 +3,21 @@ package main
 import (
 	"fmt"
 	gs "github.com/ghostljj/gspider"
+	"path/filepath"
+	"runtime"
 )
 
 func main() {
 
 	var strUrl string
-	strUrl = "https://192.168.211.211:9200/book/_search"
-	strPostData := `{
-						"from": 0,
-						"size": 200,
-						"query": {
-							"match_all": {}
-						}
-					}`
-
+	//证书需要指定域名，在host里面设置好
+	//证书还有过期，最好自己生成拉
+	strUrl = "https://www.test.example.com:444"
 	req := gs.Session()
-	req.Verify = false
-
-	res := req.GetJsonR(strUrl, strPostData,
-		gs.OptHeader(map[string]string{"Authorization": "Basic ZWxhc3RpYzoxMjMzMjE="}))
+	_, currentFile, _, _ := runtime.Caller(0)
+	currentDir := filepath.Dir(currentFile)
+	req.SetmTLSClientFile(currentDir+"/x509/c.crt", currentDir+"/x509/c.key", currentDir+"/x509/s.ca")
+	res := req.Get(strUrl)
 
 	if res.GetErr() != nil {
 		fmt.Println("Error=" + res.GetErr().Error())

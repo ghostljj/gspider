@@ -8,20 +8,13 @@ import (
 func main() {
 
 	var strUrl string
-	strUrl = "https://192.168.211.211:9200/book/_search"
-	strPostData := `{
-						"from": 0,
-						"size": 200,
-						"query": {
-							"match_all": {}
-						}
-					}`
+	strUrl = "https://www.google.com"
 
 	req := gs.Session()
-	req.Verify = false
+	req.HttpProxyAuto = true
+	//req.Verify = true
 
-	res := req.GetJsonR(strUrl, strPostData,
-		gs.OptHeader(map[string]string{"Authorization": "Basic ZWxhc3RpYzoxMjMzMjE="}))
+	res := req.Get(strUrl)
 
 	if res.GetErr() != nil {
 		fmt.Println("Error=" + res.GetErr().Error())

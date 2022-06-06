@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -147,14 +148,28 @@ func (req *Request) send(strMethod, strUrl, strPostData, refererUrl string, head
 		ts.ResponseHeaderTimeout = time.Second * 10 //限制读取response header的时间
 		// ts.ExpectContinueTimeout = 1 * time.Second  //限制client在发送包含 Expect: 100-continue 的header到收到继续发送body的response之间的时间等待 POST才可能需要
 
-		if req.Verify {
+		if req.Verify && req.tlsClientConfig != nil {
+			ts.TLSClientConfig = req.tlsClientConfig
 		} else {
 			ts.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //跳过证书验证
 		}
 
+		var HttpProxyInfoTemp = ""
+		if req.HttpProxyAuto {
+			http_proxy := os.Getenv("http_proxy")
+			http_proxys := os.Getenv("https_proxy")
+			if len(http_proxy) > 0 {
+				HttpProxyInfoTemp = "http://" + http_proxy
+			} else if len(http_proxys) > 0 {
+				HttpProxyInfoTemp = "http://" + http_proxys
+			}
+		}
+		if len(req.HttpProxyInfo) > 0 {
+			HttpProxyInfoTemp = req.HttpProxyInfo
+		}
 		//ts.Dial = (netDialer).Dial //弃用，使用DialContext
-		if len(req.HttpProxyInfo) > 0 { //http 代理设置
-			proxyUrl, err := url.Parse(req.HttpProxyInfo)
+		if len(HttpProxyInfoTemp) > 0 { //http 代理设置
+			proxyUrl, err := url.Parse(HttpProxyInfoTemp)
 			if err != nil {
 				res.err = err
 				return res
