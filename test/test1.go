@@ -2,17 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/asmcos/requests"
 	gs "github.com/ghostljj/gspider"
 )
 
 func main() {
-
-	resp, err := requests.Get("http://www.zhanluejia.net.cn")
-	if err != nil {
-		return
-	}
-	println(resp.Text())
 
 	var strUrl string
 	strUrl = "http://2022.ip138.com/ic.asp"
