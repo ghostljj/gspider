@@ -6,7 +6,6 @@ import (
 )
 
 func main() {
-
 	var strUrl string
 	strUrl = "https://www.google.com"
 
@@ -31,6 +30,6 @@ func main() {
 		res.PrintResUrl()                 // 打印 响应 最后的Url
 		res.PrintCookies(res.GetResUrl()) // 获取 响应 最后的Url 的 Cookie
 		res.PrintStatusCode()             // 打印 响应 状态码
-
 	}
+	select {}
 }

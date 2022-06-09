@@ -58,17 +58,6 @@ func (res *Response) PrintResHeader(key string) {
 	fmt.Println("")
 }
 
-//PrintResSetCookie
-func (res *Response) PrintResSetCookie() {
-	fmt.Println("------------------  S Res 响应 Set-Cookie ")
-	fmt.Println("------------------  使用 res.GetResCookies() []*http.Cookie ")
-	for _, itemCookie := range res.GetResCookies() {
-		fmt.Println("------------------          ", itemCookie)
-	}
-	fmt.Println("------------------------------------------------------")
-	fmt.Println()
-}
-
 //PrintReqUrl 打印 请求 URL
 func (res *Response) PrintReqUrl() {
 	fmt.Println("------------------  Req Url 请求 URL ==> (" + res.GetReqUrl() + ") End")
@@ -85,6 +74,17 @@ func (res *Response) PrintResUrl() {
 func (res *Response) PrintStatusCode() {
 	fmt.Println("------------------  Res StatusCode ==> " + strconv.Itoa(res.GetStatusCode()))
 	fmt.Println("")
+}
+
+//PrintResSetCookie
+func (res *Response) PrintResSetCookie() {
+	fmt.Println("------------------  S Res 响应 Set-Cookie ")
+	fmt.Println("------------------  使用 res.GetResCookies() []*http.Cookie ")
+	for _, itemCookie := range res.GetResCookies() {
+		fmt.Println("------------------          ", itemCookie)
+	}
+	fmt.Println("------------------------------------------------------")
+	fmt.Println()
 }
 
 //PrintCookies 打印CookieJar

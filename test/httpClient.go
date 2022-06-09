@@ -17,6 +17,7 @@ func main() {
 	_, currentFile, _, _ := runtime.Caller(0)
 	currentDir := filepath.Dir(currentFile)
 	req.SetmTLSClientFile(currentDir+"/x509/c.crt", currentDir+"/x509/c.key", currentDir+"/x509/s.ca")
+	//SetTLSClientFile  单向用这个
 	res := req.Get(strUrl)
 
 	if res.GetErr() != nil {
