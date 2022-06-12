@@ -109,6 +109,7 @@ func (req *Request) send(strMethod, strUrl, strPostData, refererUrl string, head
 	strMethod = strings.ToUpper(strMethod)
 	reqURI, err := url.Parse(strUrl)
 	if err != nil {
+		res.resBytes = []byte(err.Error())
 		res.err = err
 		return res
 	}
@@ -119,6 +120,7 @@ func (req *Request) send(strMethod, strUrl, strPostData, refererUrl string, head
 	bytesPostData := bytes.NewBuffer([]byte(strPostData))
 	httpReq, err := http.NewRequest(strMethod, strUrl, bytesPostData)
 	if err != nil {
+		res.resBytes = []byte(err.Error())
 		res.err = err
 		return res
 	}
@@ -135,6 +137,7 @@ func (req *Request) send(strMethod, strUrl, strPostData, refererUrl string, head
 		if len(req.LocalIP) > 0 { //设置本地网络ip
 			localAddr, err := net.ResolveIPAddr("ip", req.LocalIP)
 			if err != nil {
+				res.resBytes = []byte(err.Error())
 				res.err = err
 				return res
 			}
@@ -154,24 +157,31 @@ func (req *Request) send(strMethod, strUrl, strPostData, refererUrl string, head
 			ts.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //跳过证书验证
 		}
 
-		var HttpProxyInfoTemp = ""
+		var httpProxyInfoOK = ""
 		if req.HttpProxyAuto {
-			http_proxy := os.Getenv("http_proxy")
-			http_proxys := os.Getenv("https_proxy")
-			if len(http_proxy) > 0 {
-				HttpProxyInfoTemp = "http://" + http_proxy
-			} else if len(http_proxys) > 0 {
-				HttpProxyInfoTemp = "http://" + http_proxys
+			httpProxy := os.Getenv("http_proxy")
+			httpProxys := os.Getenv("https_proxy")
+			if len(httpProxy) > 0 {
+				httpProxyInfoOK = httpProxy
+				if strings.Index(httpProxyInfoOK, "http") == -1 {
+					httpProxyInfoOK = "http://" + httpProxyInfoOK
+				}
+			} else if len(httpProxys) > 0 {
+				httpProxyInfoOK = httpProxys
+				if strings.Index(httpProxyInfoOK, "http") == -1 {
+					httpProxyInfoOK = "https://" + httpProxyInfoOK
+				}
 			}
 		}
 		if len(req.HttpProxyInfo) > 0 {
-			HttpProxyInfoTemp = req.HttpProxyInfo
+			httpProxyInfoOK = req.HttpProxyInfo
 		}
 		//ts.Dial = (netDialer).Dial //弃用，使用DialContext
-		if len(HttpProxyInfoTemp) > 0 { //http 代理设置
-			proxyUrl, err := url.Parse(HttpProxyInfoTemp)
+		if len(httpProxyInfoOK) > 0 { //http 代理设置
+			proxyUrl, err := url.Parse(httpProxyInfoOK)
 			if err != nil {
 				res.err = err
+				res.resBytes = []byte(err.Error())
 				return res
 			}
 			ts.Proxy = http.ProxyURL(proxyUrl)
@@ -187,6 +197,7 @@ func (req *Request) send(strMethod, strUrl, strPostData, refererUrl string, head
 				netDialer,
 			)
 			if err != nil {
+				res.resBytes = []byte(err.Error())
 				res.err = err
 				return res
 			}
@@ -242,6 +253,11 @@ func (req *Request) send(strMethod, strUrl, strPostData, refererUrl string, head
 
 	httpRes, err := httpClient.Do(httpReq)
 
+	if err != nil {
+		res.resBytes = []byte(err.Error())
+		res.err = err
+		return res
+	}
 	//返回 响应 Cookies
 	res.resCookies = httpRes.Cookies()
 	//设置 响应 头信息
@@ -254,6 +270,7 @@ func (req *Request) send(strMethod, strUrl, strPostData, refererUrl string, head
 	res.statusCode = httpRes.StatusCode
 
 	if err != nil {
+		res.resBytes = []byte(err.Error())
 		res.err = err
 		return res
 	}
@@ -267,6 +284,7 @@ func (req *Request) send(strMethod, strUrl, strPostData, refererUrl string, head
 		case "gzip":
 			reader, err = gzip.NewReader(httpRes.Body)
 			if err != nil {
+				res.resBytes = []byte(err.Error())
 				res.err = err
 				return res
 			}
@@ -278,6 +296,7 @@ func (req *Request) send(strMethod, strUrl, strPostData, refererUrl string, head
 	}
 
 	if res.resBytes, err = pedanticReadAll(reader); err != nil {
+		res.resBytes = []byte(err.Error())
 		res.err = err
 		return res
 	}
