@@ -9,6 +9,9 @@ import (
 // go test -v mytest_test.go  指定test文件，也许很多个
 // go test -v mytest_test.go -test.run Test_Sum_1  指定函数
 
+//t.Log("打印成功，没有-v不显示")
+//t.Error("打印失败，失败时必显示")
+
 func sum(a, b int) (c int) {
 	c = a + b
 	return
