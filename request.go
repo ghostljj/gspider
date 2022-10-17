@@ -115,6 +115,10 @@ func Session() *Request {
 }
 
 //--------------------------------------------------------------------------------------------------------------
+//1、为此结构体，定义一个apply接口requestInterface
+//2、funcRequests struct 实现apply接口
+//3、创建一个函数newFuncRequests 参数为某结构体，返回funcRequests
+//4、为此结构体创建参数修改函数返回requestInterface
 
 // NewRequestOptions请求参数 采集基本接口
 type requestInterface interface {

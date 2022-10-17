@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
+	"context"
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
@@ -145,6 +146,7 @@ func (req *Request) send(strMethod, strUrl, strPostData, refererUrl string, head
 				IP: localAddr.IP,
 			}
 			netDialer.LocalAddr = &localTCPAddr
+			ts.DialContext = (netDialer).DialContext
 		}
 
 		ts.TLSHandshakeTimeout = time.Second * 10   //限制执行TLS握手所花费的时间
@@ -201,7 +203,13 @@ func (req *Request) send(strMethod, strUrl, strPostData, refererUrl string, head
 				res.err = err
 				return res
 			}
-			ts.Dial = (netDialerNew).Dial //SOCKS5 必须使用这个。。。
+
+			//if contextDialer, ok := netDialerNew.(proxy.ContextDialer); ok {
+			//	ts.DialContext = contextDialer.DialContext
+			//}
+			ts.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+				return netDialerNew.Dial(network, address)
+			}
 		}
 	}
 	httpClient.Transport = ts
