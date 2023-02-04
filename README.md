@@ -1,6 +1,6 @@
 
 <p align="center"> 
-  <h1> 欢迎使用gspider 蜘蛛 爬虫 采集</h1>
+  <h1> 欢迎使用gspider 蜘蛛 爬虫 采集 </h1>
 </p>
 
 
