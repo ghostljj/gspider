@@ -237,6 +237,7 @@ func (req *Request) send(strMethod, strUrl, strPostData, refererUrl string, head
 			sendHeader[strings.ToLower(k)] = v
 		}
 
+		sendHeader[strings.ToLower(`accept-encoding`)] = `gzip, deflate, br`
 		if req.isGetJson == 1 { //接收json
 			sendHeader[strings.ToLower(`accept`)] = `application/json, text/plain, */*`
 		}
