@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
+	"github.com/andybalholm/brotli"
 	"io"
 	"net"
 	"net/http"
@@ -285,10 +286,13 @@ func (req *Request) send(strMethod, strUrl, strPostData, refererUrl string, head
 
 	defer httpRes.Body.Close()
 
-	var reader io.ReadCloser
+	var reader io.Reader
 	//解压流 gzip deflate
+	ContentEncoding := httpRes.Header.Get("Content-Encoding")
 	{
-		switch httpRes.Header.Get("Content-Encoding") {
+		switch ContentEncoding {
+		case "br":
+			reader = brotli.NewReader(httpRes.Body)
 		case "gzip":
 			reader, err = gzip.NewReader(httpRes.Body)
 			if err != nil {
