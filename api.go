@@ -85,6 +85,16 @@ func (req *Request) PutJson(strUrl, strPostData string, opts ...requestInterface
 	return req.request("PUT", strUrl, strPostData, opts...)
 }
 
+//PATCH PATCH方法
+func (req *Request) Patch(strUrl, strPostData string, opts ...requestInterface) *Response {
+	return req.request("PATCH", strUrl, strPostData, opts...)
+}
+func (req *Request) PatchJson(strUrl, strPostData string, opts ...requestInterface) *Response {
+	req.isGetJson = 1
+	req.isPostJson = 1
+	return req.request("PATCH", strUrl, strPostData, opts...)
+}
+
 //获取img src 值
 func (req *Request) GetBase64ImageSrc(strUrl string, opts ...requestInterface) (*Response, string) {
 	res, strContent := req.GetBase64Image(strUrl, opts...)
