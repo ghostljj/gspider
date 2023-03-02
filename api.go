@@ -67,6 +67,7 @@ func (req *Request) DeleteJson(strUrl string, opts ...requestInterface) *Respons
 
 //Post 方法
 func (req *Request) Post(strUrl, strPostData string, opts ...requestInterface) *Response {
+	req.isPostJson = 0
 	return req.request("POST", strUrl, strPostData, opts...)
 }
 func (req *Request) PostJson(strUrl, strPostData string, opts ...requestInterface) *Response {
