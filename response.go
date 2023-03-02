@@ -78,6 +78,11 @@ func (res *Response) GetResCookies() []*http.Cookie {
 	return res.resCookies
 }
 
+//GetAllCookies 获取所有 Cookies 可以是 请求url \ 响应url
+func (res *Response) GetAllCookies(strUrl string) *map[string]string {
+	return res.req.GetCookiesJarMap(strUrl)
+}
+
 //GetReqUrl 获取 请求 Url
 func (res *Response) GetReqUrl() string {
 	return res.reqUrl

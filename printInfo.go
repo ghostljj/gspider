@@ -90,7 +90,7 @@ func (res *Response) PrintResSetCookie() {
 //PrintCookies 打印CookieJar
 func (res *Response) PrintCookies(strUrl string) {
 	fmt.Println("------------------  S 全局CookieJar  ==> From(" + strUrl + ")")
-	fmt.Println("------------------  使用 res.req.GetCookiesJarMap(strUrl string) map[string]string")
+	fmt.Println("------------------  使用 res.GetAllCookies(strUrl string) map[string]string")
 	defer func() {
 		fmt.Println("------------------------------------------------------")
 		fmt.Println("")
@@ -98,7 +98,7 @@ func (res *Response) PrintCookies(strUrl string) {
 	if res.req.cookieJar == nil {
 		return
 	}
-	mapCookieHost := res.req.GetCookiesJarMap(strUrl)
+	mapCookieHost := res.GetAllCookies(strUrl)
 	for k, v := range *mapCookieHost {
 		fmt.Print("------------------          " + k)
 		fmt.Print(" : ")
