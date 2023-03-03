@@ -22,82 +22,102 @@ import (
 
 //--------------------------------------------------------------------------------------------------------------
 
-func (req *Request) setRequestOptions(strUrl string, opts ...requestInterface) (refererUrl string, header map[string]string, redirectCount int) {
-	req.myMutex.Lock()
-	defer req.myMutex.Unlock()
+func (req *Request) GetRequestOptions(strUrl string, opts ...requestOptionsInterface) (ro *RequestOptions) {
 
+	ro = &RequestOptions{
+		IsPostJson:       -1,
+		IsGetJson:        -1,
+		Header:           make(map[string]string),
+		RedirectCount:    30,
+		Timeout:          30,
+		ReadWriteTimeout: 30,
+		KeepAliveTimeout: 30,
+	}
 	for _, opt := range opts {
-		opt.apply(req) //这里是塞入实体，针对实体赋值
+		opt.apply(ro) //这里是塞入实体，针对实体赋值
 	}
-	if req.Cookie != "" {
-		req.SetCookies(strUrl, req.Cookie)
+	if ro.Cookie != "" {
+		req.SetCookies(strUrl, ro.Cookie)
 	}
-	if req.CookieAll != "" {
-		req.SetCookiesAll(strUrl, req.CookieAll)
+	if ro.CookieAll != "" {
+		req.SetCookiesAll(strUrl, ro.CookieAll)
 	}
-	refererUrl, header, redirectCount = req.RefererUrl, req.Header, req.RedirectCount
 	return
 }
 
-func (req *Request) request(strMethod, strUrl, strPostData string, opts ...requestInterface) *Response {
-	refererUrl, header, redirectCount := req.setRequestOptions(strUrl, opts...)
-	return req.send(strMethod, strUrl, strPostData, refererUrl, header, redirectCount)
-}
-
-func (req *Request) Get(strUrl string, opts ...requestInterface) *Response {
-	return req.request("GET", strUrl, "", opts...)
-}
-
-func (req *Request) GetJson(strUrl string, opts ...requestInterface) *Response {
-	req.isGetJson = 1
-	return req.request("GET", strUrl, "", opts...)
-}
-func (req *Request) GetJsonR(strUrl, strPostData string, opts ...requestInterface) *Response {
-	req.isGetJson = 1
-	if strPostData != "" {
-		req.isPostJson = 1
+func (req *Request) request(strMethod, strUrl, strPostData string, ro *RequestOptions) *Response {
+	if ro == nil {
+		ro = req.GetRequestOptions(strUrl)
 	}
-	return req.request("GET", strUrl, strPostData, opts...)
+	return req.send(strMethod, strUrl, strPostData, ro)
 }
 
-func (req *Request) DeleteJson(strUrl string, opts ...requestInterface) *Response {
-	req.isGetJson = 1
-	return req.request("DELETE", strUrl, "", opts...)
+func (req *Request) Get(strUrl string, opts ...requestOptionsInterface) *Response {
+	ro := req.GetRequestOptions(strUrl, opts...)
+	return req.request("GET", strUrl, "", ro)
+}
+
+func (req *Request) GetJson(strUrl string, opts ...requestOptionsInterface) *Response {
+	ro := req.GetRequestOptions(strUrl, opts...)
+	ro.IsGetJson = 1
+	return req.request("GET", strUrl, "", ro)
+}
+func (req *Request) GetJsonR(strUrl, strPostData string, opts ...requestOptionsInterface) *Response {
+	ro := req.GetRequestOptions(strUrl, opts...)
+	ro.IsGetJson = 1
+	if strPostData != "" {
+		ro.IsPostJson = 1
+	}
+	return req.request("GET", strUrl, strPostData, ro)
+}
+
+func (req *Request) DeleteJson(strUrl string, opts ...requestOptionsInterface) *Response {
+	ro := req.GetRequestOptions(strUrl, opts...)
+	ro.IsGetJson = 1
+	return req.request("DELETE", strUrl, "", ro)
 }
 
 //Post 方法
-func (req *Request) Post(strUrl, strPostData string, opts ...requestInterface) *Response {
-	req.isPostJson = 0
-	return req.request("POST", strUrl, strPostData, opts...)
+func (req *Request) Post(strUrl, strPostData string, opts ...requestOptionsInterface) *Response {
+	ro := req.GetRequestOptions(strUrl, opts...)
+	ro.IsPostJson = 0
+	return req.request("POST", strUrl, strPostData, ro)
 }
-func (req *Request) PostJson(strUrl, strPostData string, opts ...requestInterface) *Response {
-	req.isPostJson = 1
-	req.isGetJson = 1
-	return req.request("POST", strUrl, strPostData, opts...)
+func (req *Request) PostJson(strUrl, strPostData string, opts ...requestOptionsInterface) *Response {
+	ro := req.GetRequestOptions(strUrl, opts...)
+	ro.IsPostJson = 1
+	ro.IsGetJson = 1
+	return req.request("POST", strUrl, strPostData, ro)
 }
 
 //Put Put方法
-func (req *Request) Put(strUrl, strPostData string, opts ...requestInterface) *Response {
-	return req.request("PUT", strUrl, strPostData, opts...)
+func (req *Request) Put(strUrl, strPostData string, opts ...requestOptionsInterface) *Response {
+	ro := req.GetRequestOptions(strUrl, opts...)
+	ro.IsPostJson = 0
+	return req.request("PUT", strUrl, strPostData, ro)
 }
-func (req *Request) PutJson(strUrl, strPostData string, opts ...requestInterface) *Response {
-	req.isGetJson = 1
-	req.isPostJson = 1
-	return req.request("PUT", strUrl, strPostData, opts...)
+func (req *Request) PutJson(strUrl, strPostData string, opts ...requestOptionsInterface) *Response {
+	ro := req.GetRequestOptions(strUrl, opts...)
+	ro.IsGetJson = 1
+	ro.IsPostJson = 1
+	return req.request("PUT", strUrl, strPostData, ro)
 }
 
 //PATCH PATCH方法
-func (req *Request) Patch(strUrl, strPostData string, opts ...requestInterface) *Response {
-	return req.request("PATCH", strUrl, strPostData, opts...)
+func (req *Request) Patch(strUrl, strPostData string, opts ...requestOptionsInterface) *Response {
+	ro := req.GetRequestOptions(strUrl, opts...)
+	ro.IsPostJson = 0
+	return req.request("PATCH", strUrl, strPostData, ro)
 }
-func (req *Request) PatchJson(strUrl, strPostData string, opts ...requestInterface) *Response {
-	req.isGetJson = 1
-	req.isPostJson = 1
-	return req.request("PATCH", strUrl, strPostData, opts...)
+func (req *Request) PatchJson(strUrl, strPostData string, opts ...requestOptionsInterface) *Response {
+	ro := req.GetRequestOptions(strUrl, opts...)
+	ro.IsGetJson = 1
+	ro.IsPostJson = 1
+	return req.request("PATCH", strUrl, strPostData, ro)
 }
 
 //获取img src 值
-func (req *Request) GetBase64ImageSrc(strUrl string, opts ...requestInterface) (*Response, string) {
+func (req *Request) GetBase64ImageSrc(strUrl string, opts ...requestOptionsInterface) (*Response, string) {
 	res, strContent := req.GetBase64Image(strUrl, opts...)
 	if res.GetErr() == nil {
 		contentType := res.GetResHeader().Get("Content-Type")
@@ -107,15 +127,15 @@ func (req *Request) GetBase64ImageSrc(strUrl string, opts ...requestInterface) (
 }
 
 //获取Base64 字符串
-func (req *Request) GetBase64Image(strUrl string, opts ...requestInterface) (*Response, string) {
-	refererUrl, header, redirectCount := req.setRequestOptions(strUrl, opts...)
-	res := req.send("GET", strUrl, "", refererUrl, header, redirectCount)
+func (req *Request) GetBase64Image(strUrl string, opts ...requestOptionsInterface) (*Response, string) {
+	ro := req.GetRequestOptions(strUrl, opts...)
+	res := req.send("GET", strUrl, "", ro)
 	return res, base64.StdEncoding.EncodeToString(res.GetBytes())
 }
 
 // SendRedirect 发送请求
 // strMethod GET POST PUT ...
-func (req *Request) send(strMethod, strUrl, strPostData, refererUrl string, header map[string]string, redirectCount int) *Response {
+func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptions) *Response {
 
 	res := newResponse(req)
 
@@ -142,9 +162,9 @@ func (req *Request) send(strMethod, strUrl, strPostData, refererUrl string, head
 	//超时设置  代理设置
 	{
 		netDialer := &net.Dialer{
-			Timeout:   req.Timeout * time.Second,                          //tcp 连接时设置的连接超时
-			Deadline:  time.Now().Add(req.ReadWriteTimeout * time.Second), //读写超时
-			KeepAlive: req.KeepAliveTimeout * time.Second,                 //保持连接超时设置
+			Timeout:   rp.Timeout * time.Second,                          //tcp 连接时设置的连接超时
+			Deadline:  time.Now().Add(rp.ReadWriteTimeout * time.Second), //读写超时
+			KeepAlive: rp.KeepAliveTimeout * time.Second,                 //保持连接超时设置
 		}
 
 		if len(req.LocalIP) > 0 { //设置本地网络ip
@@ -227,10 +247,10 @@ func (req *Request) send(strMethod, strUrl, strPostData, refererUrl string, head
 	httpClient.Transport = ts
 
 	//设置重定向次数 默认重定向10次
-	if redirectCount > 0 {
+	if rp.RedirectCount > 0 {
 		httpClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 			// 没有重定向不会执行，len(via)==1 就是第一次跳进入。选择是否跳
-			if len(via) >= redirectCount {
+			if len(via) >= rp.RedirectCount {
 				return http.ErrUseLastResponse //返回err就是，不跳
 			}
 			return nil //返回nil就是跳，
@@ -240,8 +260,8 @@ func (req *Request) send(strMethod, strUrl, strPostData, refererUrl string, head
 	//合并Header
 	{
 		sendHeader := make(map[string]string)
-		if len(refererUrl) > 0 {
-			sendHeader["referer"] = refererUrl
+		if len(rp.RefererUrl) > 0 {
+			sendHeader["referer"] = rp.RefererUrl
 		}
 
 		for k, v := range req.defaultHeaderTemplate {
@@ -249,16 +269,16 @@ func (req *Request) send(strMethod, strUrl, strPostData, refererUrl string, head
 		}
 
 		sendHeader[strings.ToLower(`accept-encoding`)] = `gzip, deflate, br`
-		if req.isGetJson == 1 { //接收json
+		if rp.IsGetJson == 1 { //接收json
 			sendHeader[strings.ToLower(`accept`)] = `application/json, text/plain, */*`
 		}
-		if req.isPostJson == 1 { //发送json
+		if rp.IsPostJson == 1 { //发送json
 			sendHeader[strings.ToLower(`content-type`)] = `application/json;charset=UTF-8`
-		} else if req.isPostJson == 0 { //发送from
+		} else if rp.IsPostJson == 0 { //发送from
 			sendHeader[strings.ToLower(`content-type`)] = `application/x-www-form-urlencoded; charset=UTF-8`
 		}
 
-		for k, v := range header {
+		for k, v := range rp.Header {
 			sendHeader[strings.ToLower(k)] = v
 		}
 		for k, v := range sendHeader {

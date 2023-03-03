@@ -15,7 +15,6 @@ import (
 	"crypto/tls"
 	"net/http"
 	"os"
-	"sync"
 	"time"
 )
 
@@ -51,28 +50,17 @@ type SendCookieAll map[string]string
 // Request 这是一个请求对象
 //
 type Request struct {
-	myMutex       sync.Mutex        //本对象的同步对象
-	LocalIP       string            //本地 网络 IP
-	RefererUrl    string            //来源url
-	isGetJson     int               //是否接收 Json  -1不发 0否 1是
-	isPostJson    int               //是否提交 Json  -1不发 0否 1是
-	Header        map[string]string //头参数
-	Cookie        string            //cookie     单独url
-	CookieAll     string            //cookieAll  根url+单独url
-	RedirectCount int               //重定向次数
+	LocalIP string // 本地 网络 IP
 
-	Timeout          time.Duration // 连接超时
-	ReadWriteTimeout time.Duration // 读写超时
-	KeepAliveTimeout time.Duration // 保持连接超时
-	HttpProxyInfo    string        // 设置Http代理 例：http://127.0.0.1:1081
-	HttpProxyAuto    bool          //自动获取http_proxy变量 默认不开启
-	Socks5Address    string        //Socks5地址 例：127.0.0.1:7813
-	Socks5User       string        //Socks5 用户名
-	Socks5Pass       string        //Socks5 密码
+	HttpProxyInfo string // 设置Http代理 例：http://127.0.0.1:1081
+	HttpProxyAuto bool   // 自动获取http_proxy变量 默认不开启
+	Socks5Address string // Socks5地址 例：127.0.0.1:7813
+	Socks5User    string // Socks5 用户名
+	Socks5Pass    string // Socks5 密码
 
-	cookieJar       http.CookieJar //CookieJar
-	Verify          bool           //https 默认不验证ssl
-	tlsClientConfig *tls.Config    //证书验证配置
+	cookieJar       http.CookieJar // CookieJar
+	Verify          bool           // https 默认不验证ssl
+	tlsClientConfig *tls.Config    // 证书验证配置
 
 	defaultHeaderTemplate map[string]string //发送 请求 头 一些默认值
 }
@@ -80,19 +68,11 @@ type Request struct {
 //defaultRequestOptions 默认配置参数
 func defaultRequest() *Request {
 	ros := Request{
-		isPostJson:    -1,
-		isGetJson:     -1,
-		Header:        make(map[string]string),
-		RedirectCount: 30,
 		Verify:        false,
-
-		Timeout:          30,
-		ReadWriteTimeout: 30,
-		KeepAliveTimeout: 30,
-		HttpProxyAuto:    false,
+		HttpProxyAuto: false,
 	}
 
-	ros.ResetCookie()
+	ros.CookieJarReset()
 	ros.defaultHeaderTemplate = make(map[string]string)
 	ros.defaultHeaderTemplate["accept-encoding"] = "gzip, deflate"
 	ros.defaultHeaderTemplate["accept-language"] = "zh-CN,zh;q=0.9"
@@ -114,73 +94,108 @@ func Session() *Request {
 	//return &dros
 }
 
+type RequestOptions struct {
+	RefererUrl    string            // 来源url
+	IsGetJson     int               // 是否接收 Json  -1不发 0否 1是
+	IsPostJson    int               // 是否提交 Json  -1不发 0否 1是
+	Header        map[string]string // 头参数
+	Cookie        string            // cookie     单独url
+	CookieAll     string            // cookieAll  根url+单独url
+	RedirectCount int               // 重定向次数
+
+	Timeout          time.Duration // 连接超时
+	ReadWriteTimeout time.Duration // 读写超时
+	KeepAliveTimeout time.Duration // 保持连接超时
+}
+
 //--------------------------------------------------------------------------------------------------------------
 //1、为此结构体，定义一个apply接口requestInterface
 //2、funcRequests struct 实现apply接口
 //3、创建一个函数newFuncRequests 参数为某结构体，返回funcRequests
 //4、为此结构体创建参数修改函数返回requestInterface
 
-// NewRequestOptions请求参数 采集基本接口
-type requestInterface interface {
-	apply(*Request)
+// requestOptionsInterface 请求参数 采集基本接口
+type requestOptionsInterface interface {
+	apply(*RequestOptions)
 }
 
 //funcRequestOption 定义面的接口使用
-type funcRequests struct {
-	anyfun func(*Request)
+type funcRequestOptions struct {
+	anyfun func(*RequestOptions)
 }
 
 //apply 实现上面的接口，使用这个匿名函数，针对传入的对象，进行操作
-func (fro *funcRequests) apply(req *Request) {
+func (fro *funcRequestOptions) apply(req *RequestOptions) {
 	fro.anyfun(req)
 }
 
 //newFuncRequestOption 新建一个匿名函数实体。
 //返回接口地址
-func newFuncRequests(anonfun func(req *Request)) *funcRequests {
-	return &funcRequests{
+func newFuncRequests(anonfun func(ro *RequestOptions)) requestOptionsInterface {
+	return &funcRequestOptions{
 		anyfun: anonfun,
 	}
 }
 
 //OptRefererUrl 设置来源地址，返回接口指针(新建一个函数，不执行的，返回他的地址而已)
-func OptRefererUrl(refererUrl string) requestInterface {
+func OptRefererUrl(refererUrl string) requestOptionsInterface {
 	//return &funcRequests{
 	//	anyfun: func(ro *requests) {
 	//		ro.RefererUrl = refererUrl
 	//	},
 	//}
 	//下面更简洁而已，上门原理一致
-	return newFuncRequests(func(req *Request) {
-		req.RefererUrl = refererUrl
+	return newFuncRequests(func(ro *RequestOptions) {
+		ro.RefererUrl = refererUrl
 	})
 }
 
 //OptHeader 设置发送头
-func OptHeader(header map[string]string) requestInterface {
-	return newFuncRequests(func(req *Request) {
-		req.Header = header
+func OptHeader(header map[string]string) requestOptionsInterface {
+	return newFuncRequests(func(ro *RequestOptions) {
+		ro.Header = header
 	})
 }
 
 //OptRedirectCount 重定向次数
-func OptRedirectCount(redirectCount int) requestInterface {
-	return newFuncRequests(func(req *Request) {
-		req.RedirectCount = redirectCount
+func OptRedirectCount(redirectCount int) requestOptionsInterface {
+	return newFuncRequests(func(ro *RequestOptions) {
+		ro.RedirectCount = redirectCount
 	})
 }
 
 //OptCookie 设置当前Url cookie
-func OptCookie(cookie string) requestInterface {
-	return newFuncRequests(func(req *Request) {
-		req.Cookie = cookie
+func OptCookie(cookie string) requestOptionsInterface {
+	return newFuncRequests(func(ro *RequestOptions) {
+		ro.Cookie = cookie
 	})
 }
 
 //OptCookieAll 设置当前Url+根Url cookie
-func OptCookieAll(cookieAll string) requestInterface {
-	return newFuncRequests(func(req *Request) {
-		req.CookieAll = cookieAll
+func OptCookieAll(cookieAll string) requestOptionsInterface {
+	return newFuncRequests(func(ro *RequestOptions) {
+		ro.CookieAll = cookieAll
+	})
+}
+
+//OptTimeout 设置超时
+func OptTimeout(timeout time.Duration) requestOptionsInterface {
+	return newFuncRequests(func(ro *RequestOptions) {
+		ro.Timeout = timeout
+	})
+}
+
+//OptReadWriteTimeout 设置读写超时
+func OptReadWriteTimeout(readWriteTimeout time.Duration) requestOptionsInterface {
+	return newFuncRequests(func(ro *RequestOptions) {
+		ro.ReadWriteTimeout = readWriteTimeout
+	})
+}
+
+//OptKeepAliveTimeout 设置保持连接，超时
+func OptKeepAliveTimeout(keepAliveTimeout time.Duration) requestOptionsInterface {
+	return newFuncRequests(func(ro *RequestOptions) {
+		ro.KeepAliveTimeout = keepAliveTimeout
 	})
 }
 
@@ -194,7 +209,7 @@ func (req *Request) SetTLSClientFile(serverCaFile string) {
 	req.SetTLSClient(byteServerCa)
 }
 
-//SetTLSClientFile (server.ca)
+//SetTLSClient (server.ca)
 //单向 TLS，只验证 server.ca证书链
 func (req *Request) SetTLSClient(serverCa []byte) {
 

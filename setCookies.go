@@ -49,9 +49,19 @@ func (req *Request) CookiesAll(strUrl string) string {
 	return str
 }
 
-//ResetCookie 重置Cookie
-func (req *Request) ResetCookie() {
+//CookieJarReset 重置CookieJar
+func (req *Request) CookieJarReset() {
 	req.cookieJar, _ = cookiejar.New(nil)
+}
+
+//CookieJarSet 设置CookieJar
+func (req *Request) CookieJarSet(c http.CookieJar) {
+	req.cookieJar = c
+}
+
+//CookieJarGet 获取CookieJar
+func (req *Request) CookieJarGet() http.CookieJar {
+	return req.cookieJar
 }
 
 //SetCookies 设置当前url Cookie

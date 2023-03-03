@@ -24,9 +24,9 @@ func main() {
 	Headers["upgrade-insecure-requests"] = `1`
 	Headers["user-agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.5005.63 Safari/537.36 Edg/102.0.1245.39"
 	Headers["X-Requested-With"] = "XMLHttpRequest"
-	req.Header = Headers
+
 	req.SetCookiesAll("https://www.baidu.com", "_vid_t=VR0fN+BV6bokqkm+baDsGdRHRT16LBbhu8gJ0jqfxqEvxqW7rWQByM39SewCdEmj8tdWlxtB79z9iQ==; https_waf_cookie=d43c2b78-1139-4f34acf89fbc0c6673d4ee0d594d787d70fb; acw_tc=ac11000116550135235237919e011b3689e9004a956d8a8416e8d6a90a6c77")
-	res := req.Get("https://www.baidu.com")
+	res := req.Get("https://www.baidu.com", gs.OptHeader(Headers))
 	//res := req.Get("https://www.baidu.com")
 	fmt.Println(res.GetContent())
 }

@@ -37,13 +37,14 @@ func main() {
 	//strUrl = "http://www.google.com"
 
 	req := gs.Session()
-	req.RefererUrl = "http://www.baidu.com"
-	req.Cookie = "aa=11;bb=22"
-	req.Header = map[string]string{"h1": "v1", "h2": "v2"}
 	//ss.SetHttpProxy(fmt.Sprintf("http://%s:%d", "127.0.0.1", 10809))
 	//ss.SetSocks5Proxy("127.0.0.1:10808", "", "")
 
-	res := req.Get(strUrl)
+	res := req.Get(strUrl,
+		gs.OptRefererUrl("http://www.baidu.com"),
+		gs.OptCookie("aa=11;bb=22"),
+		gs.OptHeader(map[string]string{"h1": "v1", "h2": "v2"}),
+	)
 	res.Encode = "utf-8"
 	if res.GetErr() != nil {
 		fmt.Println("Error=" + res.GetErr().Error())
