@@ -50,7 +50,8 @@ type SendCookieAll map[string]string
 // Request 这是一个请求对象
 //
 type Request struct {
-	LocalIP string // 本地 网络 IP
+	LocalIP   string // 本地 网络 IP
+	UserAgent string
 
 	HttpProxyInfo string // 设置Http代理 例：http://127.0.0.1:1081
 	HttpProxyAuto bool   // 自动获取http_proxy变量 默认不开启
@@ -67,19 +68,19 @@ type Request struct {
 
 //defaultRequestOptions 默认配置参数
 func defaultRequest() *Request {
-	ros := Request{
+	req := Request{
+		UserAgent:     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36",
 		Verify:        false,
 		HttpProxyAuto: false,
 	}
 
-	ros.CookieJarReset()
-	ros.defaultHeaderTemplate = make(map[string]string)
-	ros.defaultHeaderTemplate["accept-encoding"] = "gzip, deflate"
-	ros.defaultHeaderTemplate["accept-language"] = "zh-CN,zh;q=0.9"
-	ros.defaultHeaderTemplate["connection"] = "keep-alive"
-	ros.defaultHeaderTemplate["accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8"
-	ros.defaultHeaderTemplate["user-agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.119 Safari/537.36"
-	return &ros
+	req.CookieJarReset()
+	req.defaultHeaderTemplate = make(map[string]string)
+	req.defaultHeaderTemplate["accept-encoding"] = "gzip, deflate, br"
+	req.defaultHeaderTemplate["accept-language"] = "zh-CN,zh;q=0.9"
+	req.defaultHeaderTemplate["connection"] = "keep-alive"
+	req.defaultHeaderTemplate["accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8"
+	return &req
 }
 
 // Session

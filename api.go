@@ -263,6 +263,9 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 		if len(rp.RefererUrl) > 0 {
 			sendHeader["referer"] = rp.RefererUrl
 		}
+		if len(req.UserAgent) > 0 {
+			sendHeader["user-agent"] = req.UserAgent
+		}
 
 		for k, v := range req.defaultHeaderTemplate {
 			sendHeader[strings.ToLower(k)] = v
