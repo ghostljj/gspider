@@ -296,12 +296,8 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 	httpClient.Jar = req.cookieJar
 
 	httpRes, err := httpClient.Do(httpReq)
+	defer httpRes.Body.Close()
 
-	if err != nil {
-		res.resBytes = []byte(err.Error())
-		res.err = err
-		return res
-	}
 	//返回 响应 Cookies
 	res.resCookies = httpRes.Cookies()
 	//设置 响应 头信息
@@ -318,8 +314,6 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 		res.err = err
 		return res
 	}
-
-	defer httpRes.Body.Close()
 
 	var reader io.Reader
 	//解压流 gzip deflate
