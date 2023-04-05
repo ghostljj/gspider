@@ -294,8 +294,16 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 	}
 
 	httpClient.Jar = req.cookieJar
+	httpReq.Close = true
 
 	httpRes, err := httpClient.Do(httpReq)
+
+	if err != nil {
+		//httpReq.Response.Close
+		res.resBytes = []byte(err.Error())
+		res.err = err
+		return res
+	}
 	defer httpRes.Body.Close()
 
 	//返回 响应 Cookies
@@ -308,12 +316,6 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 	res.resUrl = httpRes.Request.URL.String()
 	//设置响应状态码
 	res.statusCode = httpRes.StatusCode
-
-	if err != nil {
-		res.resBytes = []byte(err.Error())
-		res.err = err
-		return res
-	}
 
 	var reader io.Reader
 	//解压流 gzip deflate
