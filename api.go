@@ -338,7 +338,7 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 		}
 	}
 
-	if res.resBytes, err = pedanticReadAll(reader); err != nil {
+	if res.resBytes, err = pedanticReadAll(reader, req); err != nil {
 		res.resBytes = []byte(err.Error())
 		res.err = err
 		return res
@@ -347,16 +347,42 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 	return res
 }
 
+func (req *Request) OnContent(f func(byteItem []byte)) {
+	req.ChContentItem = make(chan []byte, 1)
+	go func() {
+		for {
+			v, ok := <-req.ChContentItem
+			if ok {
+				f(v)
+			} else {
+				break
+			}
+		}
+	}()
+}
+
 //pedanticReadAll 读取所有字节
-func pedanticReadAll(r io.Reader) (b []byte, err error) {
+func pedanticReadAll(r io.Reader, req *Request) (b []byte, err error) {
 	var bufa [64]byte
 	buf := bufa[:]
+	var bItem []byte
+	defer func() {
+		if req.ChContentItem != nil {
+			close(req.ChContentItem)
+		}
+	}()
 	for {
 		n, err := r.Read(buf)
 		if n == 0 && err == nil {
 			return nil, fmt.Errorf("Read: n=0 with err=nil")
 		}
 		b = append(b, buf[:n]...)
+		bItem = append(bItem, buf[:n]...)
+
+		if req.ChContentItem != nil && bytes.Contains(buf[:n], []byte("\n")) { // 如果item以两个换行符结尾，说明一个事件结束了
+			req.ChContentItem <- bItem
+			bItem = bItem[:0]
+		}
 		if err == io.EOF {
 			n, err := r.Read(buf)
 			if n != 0 || err != io.EOF {
@@ -364,6 +390,7 @@ func pedanticReadAll(r io.Reader) (b []byte, err error) {
 			}
 			return b, nil
 		}
+
 		if err != nil {
 			return b, err
 		}

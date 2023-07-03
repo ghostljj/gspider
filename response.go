@@ -60,6 +60,7 @@ func newResponse(req *Request) *Response {
 	res.err = nil
 	//请求对象赋值
 	res.req = req
+
 	return &res
 }
 

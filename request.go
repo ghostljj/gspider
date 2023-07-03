@@ -64,6 +64,7 @@ type Request struct {
 	tlsClientConfig *tls.Config    // 证书验证配置
 
 	defaultHeaderTemplate map[string]string //发送 请求 头 一些默认值
+	ChContentItem         chan []byte
 }
 
 //defaultRequestOptions 默认配置参数
@@ -80,6 +81,7 @@ func defaultRequest() *Request {
 	req.defaultHeaderTemplate["accept-language"] = "zh-CN,zh;q=0.9"
 	req.defaultHeaderTemplate["connection"] = "keep-alive"
 	req.defaultHeaderTemplate["accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8"
+
 	return &req
 }
 
