@@ -5,7 +5,7 @@ import (
 	"strconv"
 )
 
-//PrintInfo
+// PrintInfo
 func (res *Response) PrintInfo() {
 	res.PrintReqHeader("")            // 打印 请求  信息
 	res.PrintResHeader("")            // 打印 响应 头信息
@@ -17,7 +17,7 @@ func (res *Response) PrintInfo() {
 	res.PrintStatusCode()             // 打印 响应 状态码
 }
 
-//PrintReqHeader 打印 请求 头信息 查看信息用
+// PrintReqHeader 打印 请求 头信息 查看信息用
 func (res *Response) PrintReqHeader(key string) {
 	if key == "" {
 		fmt.Println("------------------  Req 请求 Header | GetReqHeader() map[string][]string")
@@ -35,13 +35,13 @@ func (res *Response) PrintReqHeader(key string) {
 	fmt.Println("")
 }
 
-//PrintReqPostData 打印 请求 Post内容
+// PrintReqPostData 打印 请求 Post内容
 func (res *Response) PrintReqPostData() {
 	fmt.Println("------------------  Req PostData ==> ( " + res.GetReqPostData() + " )")
 	fmt.Println("")
 }
 
-//PrintResHeader 打印 响应 头信息
+// PrintResHeader 打印 响应 头信息
 func (res *Response) PrintResHeader(key string) {
 	if key == "" {
 		fmt.Println("------------------  Res 响应 Header")
@@ -50,6 +50,7 @@ func (res *Response) PrintResHeader(key string) {
 			fmt.Print("------------------          " + k)
 			fmt.Print(" : ")
 			fmt.Println(v)
+
 		}
 		fmt.Println("------------------------------------------------------")
 	} else {
@@ -58,25 +59,25 @@ func (res *Response) PrintResHeader(key string) {
 	fmt.Println("")
 }
 
-//PrintReqUrl 打印 请求 URL
+// PrintReqUrl 打印 请求 URL
 func (res *Response) PrintReqUrl() {
 	fmt.Println("------------------  Req Url 请求 URL ==> (" + res.GetReqUrl() + ") End")
 	fmt.Println("")
 }
 
-//PrintResUrl 打印最后 响应 URL
+// PrintResUrl 打印最后 响应 URL
 func (res *Response) PrintResUrl() {
 	fmt.Println("------------------  Res Url 最后 响应 URL ==> (" + res.GetResUrl() + ") End") // 例如 Content-Encoding
 	fmt.Println("")
 }
 
-//PrintResStatusCode 打印 响应 装态码
+// PrintResStatusCode 打印 响应 装态码
 func (res *Response) PrintStatusCode() {
 	fmt.Println("------------------  Res StatusCode ==> " + strconv.Itoa(res.GetStatusCode()))
 	fmt.Println("")
 }
 
-//PrintResSetCookie
+// PrintResSetCookie
 func (res *Response) PrintResSetCookie() {
 	fmt.Println("------------------  S Res 响应 Set-Cookie ")
 	fmt.Println("------------------  使用 res.GetResCookies() []*http.Cookie ")
@@ -87,7 +88,7 @@ func (res *Response) PrintResSetCookie() {
 	fmt.Println()
 }
 
-//PrintCookies 打印CookieJar
+// PrintCookies 打印CookieJar
 func (res *Response) PrintCookies(strUrl string) {
 	fmt.Println("------------------  S 全局CookieJar  ==> From(" + strUrl + ")")
 	fmt.Println("------------------  使用 res.GetAllCookies(strUrl string) map[string]string")
