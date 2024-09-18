@@ -197,6 +197,7 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 			httpProxys := os.Getenv("https_proxy")
 			httpProxy = strings.ReplaceAll(httpProxy, "\n", "")
 			httpProxys = strings.ReplaceAll(httpProxys, "\n", "")
+
 			if len(httpProxy) > 0 {
 				httpProxyInfoOK = httpProxy
 				if strings.Index(httpProxyInfoOK, "http") == -1 {
