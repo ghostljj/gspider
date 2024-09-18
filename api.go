@@ -77,7 +77,7 @@ func (req *Request) DeleteJson(strUrl string, opts ...requestOptionsInterface) *
 	return req.request("DELETE", strUrl, "", ro)
 }
 
-//Post 方法
+// Post 方法
 func (req *Request) Post(strUrl, strPostData string, opts ...requestOptionsInterface) *Response {
 	ro := req.GetRequestOptions(strUrl, opts...)
 	ro.IsPostJson = 0
@@ -90,7 +90,7 @@ func (req *Request) PostJson(strUrl, strPostData string, opts ...requestOptionsI
 	return req.request("POST", strUrl, strPostData, ro)
 }
 
-//Put Put方法
+// Put Put方法
 func (req *Request) Put(strUrl, strPostData string, opts ...requestOptionsInterface) *Response {
 	ro := req.GetRequestOptions(strUrl, opts...)
 	ro.IsPostJson = 0
@@ -103,7 +103,7 @@ func (req *Request) PutJson(strUrl, strPostData string, opts ...requestOptionsIn
 	return req.request("PUT", strUrl, strPostData, ro)
 }
 
-//PATCH PATCH方法
+// PATCH PATCH方法
 func (req *Request) Patch(strUrl, strPostData string, opts ...requestOptionsInterface) *Response {
 	ro := req.GetRequestOptions(strUrl, opts...)
 	ro.IsPostJson = 0
@@ -116,7 +116,7 @@ func (req *Request) PatchJson(strUrl, strPostData string, opts ...requestOptions
 	return req.request("PATCH", strUrl, strPostData, ro)
 }
 
-//获取img src 值
+// 获取img src 值
 func (req *Request) GetBase64ImageSrc(strUrl string, opts ...requestOptionsInterface) (*Response, string) {
 	res, strContent := req.GetBase64Image(strUrl, opts...)
 	if res.GetErr() == nil {
@@ -126,7 +126,7 @@ func (req *Request) GetBase64ImageSrc(strUrl string, opts ...requestOptionsInter
 	return res, strContent
 }
 
-//获取Base64 字符串
+// 获取Base64 字符串
 func (req *Request) GetBase64Image(strUrl string, opts ...requestOptionsInterface) (*Response, string) {
 	ro := req.GetRequestOptions(strUrl, opts...)
 	res := req.send("GET", strUrl, "", ro)
@@ -195,6 +195,8 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 		if req.HttpProxyAuto {
 			httpProxy := os.Getenv("http_proxy")
 			httpProxys := os.Getenv("https_proxy")
+			httpProxy = strings.ReplaceAll(httpProxy, "\n", "")
+			httpProxys = strings.ReplaceAll(httpProxys, "\n", "")
 			if len(httpProxy) > 0 {
 				httpProxyInfoOK = httpProxy
 				if strings.Index(httpProxyInfoOK, "http") == -1 {
@@ -361,7 +363,7 @@ func (req *Request) OnContent(f func(byteItem []byte)) {
 	}()
 }
 
-//pedanticReadAll 读取所有字节
+// pedanticReadAll 读取所有字节
 func pedanticReadAll(r io.Reader, req *Request) (b []byte, err error) {
 	var bufa [64]byte
 	buf := bufa[:]
