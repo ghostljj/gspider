@@ -148,7 +148,9 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 	}
 	res.reqUrl = reqURI.String()
 
-	httpClient := &http.Client{}
+	httpClient := &http.Client{
+		Timeout: rp.ReadWriteTimeout * time.Second,
+	}
 	res.reqPostData = strPostData
 	bytesPostData := bytes.NewBuffer([]byte(strPostData))
 	httpReq, err := http.NewRequest(strMethod, strUrl, bytesPostData)
@@ -158,13 +160,19 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 		return res
 	}
 
-	ts := &http.Transport{}
+	ts := &http.Transport{
+		// 新增：缩短空闲连接超时时间，避免被服务器关闭
+		IdleConnTimeout:       30 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ResponseHeaderTimeout: 10 * time.Second,
+	}
+	// 新增：禁用 HTTP/2，强制使用 HTTP/1.1
+	//ts.TLSNextProto = make(map[string]func(authority string, c *tls.Conn) http.RoundTripper)
 	//超时设置  代理设置
 	{
 		netDialer := &net.Dialer{
-			Timeout:   rp.Timeout * time.Second,                          //tcp 连接时设置的连接超时
-			Deadline:  time.Now().Add(rp.ReadWriteTimeout * time.Second), //读写超时
-			KeepAlive: rp.KeepAliveTimeout * time.Second,                 //保持连接超时设置
+			Timeout:   rp.Timeout * time.Second,          // TCP 连接超时
+			KeepAlive: rp.KeepAliveTimeout * time.Second, // 连接保活时间
 		}
 
 		if len(req.LocalIP) > 0 { //设置本地网络ip
@@ -238,11 +246,12 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 				return res
 			}
 
-			//if contextDialer, ok := netDialerNew.(proxy.ContextDialer); ok {
-			//	ts.DialContext = contextDialer.DialContext
-			//}
-			ts.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
-				return netDialerNew.Dial(network, address)
+			if ctxDialer, ok := netDialerNew.(proxy.ContextDialer); ok {
+				ts.DialContext = ctxDialer.DialContext
+			} else {
+				ts.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+					return netDialerNew.Dial(network, address)
+				}
 			}
 		}
 	}
