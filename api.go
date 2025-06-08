@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"github.com/andybalholm/brotli"
 	"io"
-	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
@@ -32,6 +31,7 @@ func (req *Request) GetRequestOptions(strUrl string, opts ...requestOptionsInter
 		Timeout:          30,
 		ReadWriteTimeout: 30,
 		KeepAliveTimeout: 30,
+		TcpDelay:         0,
 	}
 	for _, opt := range opts {
 		opt.apply(ro) //这里是塞入实体，针对实体赋值
@@ -186,7 +186,6 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 				IP: localAddr.IP,
 			}
 			netDialer.LocalAddr = &localTCPAddr
-			ts.DialContext = (netDialer).DialContext
 		}
 
 		ts.TLSHandshakeTimeout = time.Second * 10   //限制执行TLS握手所花费的时间
@@ -230,28 +229,63 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 				return res
 			}
 			ts.Proxy = http.ProxyURL(proxyUrl)
-			ts.DialContext = (netDialer).DialContext
+		}
+		ts.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			// 使用已配置的 netDialer 建立连接
+			conn, err := netDialer.DialContext(ctx, network, addr)
+			if err != nil {
+				return nil, err
+			}
+
+			if rp.TcpDelay > 0 {
+				time.Sleep(rp.TcpDelay * time.Millisecond)
+			}
+			return conn, nil
 		}
 		if len(req.Socks5Address) > 0 { //SOCKS5 代理设置
 			var Socks5Auth *proxy.Auth
 			if len(req.Socks5User) > 0 {
-				Socks5Auth = &proxy.Auth{User: req.Socks5User, Password: req.Socks5Pass} // 没有就不设置 就是nil
+				Socks5Auth = &proxy.Auth{User: req.Socks5User, Password: req.Socks5Pass}
 			}
-			netDialerNew, err := proxy.SOCKS5("tcp", req.Socks5Address,
-				Socks5Auth,
-				netDialer,
+
+			// 创建基于 baseDialContext 的 SOCKS5 代理
+			netDialerNew, err := proxy.SOCKS5("tcp", req.Socks5Address, Socks5Auth,
+				&net.Dialer{ // 使用空的 Dialer，因为我们会在 baseDialContext 中处理连接
+					Timeout:   netDialer.Timeout,
+					KeepAlive: netDialer.KeepAlive,
+				},
 			)
+
 			if err != nil {
 				res.resBytes = []byte(err.Error())
 				res.err = err
 				return res
 			}
 
+			// 类型断言，检查是否实现了 ContextDialer 接口
 			if ctxDialer, ok := netDialerNew.(proxy.ContextDialer); ok {
-				ts.DialContext = ctxDialer.DialContext
+				// 使用支持上下文的 DialContext 方法
+				ts.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+					conn, err := ctxDialer.DialContext(ctx, network, addr)
+					if err != nil {
+						return nil, err
+					}
+					if rp.TcpDelay > 0 {
+						time.Sleep(rp.TcpDelay * time.Millisecond)
+					}
+					return conn, nil
+				}
 			} else {
-				ts.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
-					return netDialerNew.Dial(network, address)
+				// 回退到不支持上下文的 Dial 方法
+				ts.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+					conn, err := netDialerNew.Dial(network, addr)
+					if err != nil {
+						return nil, err
+					}
+					if rp.TcpDelay > 0 {
+						time.Sleep(rp.TcpDelay * time.Millisecond)
+					}
+					return conn, nil
 				}
 			}
 		}
@@ -307,12 +341,6 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 
 	httpClient.Jar = req.cookieJar
 	httpReq.Close = true
-
-	// 添加随机延迟（模拟浏览器行为）
-	rand.NewSource(time.Now().UnixNano())
-	delay := 3000 + rand.Intn(2000) // 3-5秒随机延迟
-	//fmt.Printf("等待 %dms 后发送请求...\n", delay)
-	time.Sleep(time.Duration(delay) * time.Millisecond)
 
 	httpRes, err := httpClient.Do(httpReq)
 

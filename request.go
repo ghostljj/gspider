@@ -4,11 +4,11 @@
 //
 // response 是返回对象1
 //
-//  文档安装调试
-//    1、 go get -u golang.org/x/pkgsite/cmd/pkgsite@latest
-//    2、 go install golang.org/x/pkgsite/cmd/pkgsite@latest
-//    3、 pkgsite -http=:6060 -list=false
-//    4、 打开 http://127.0.0.1:6060/github.com/ghostljj/gspider#pkg-overview
+//	文档安装调试
+//	  1、 go get -u golang.org/x/pkgsite/cmd/pkgsite@latest
+//	  2、 go install golang.org/x/pkgsite/cmd/pkgsite@latest
+//	  3、 pkgsite -http=:6060 -list=false
+//	  4、 打开 http://127.0.0.1:6060/github.com/ghostljj/gspider#pkg-overview
 package gspider
 
 import (
@@ -48,7 +48,6 @@ type SendCookieAll map[string]string
 //}
 
 // Request 这是一个请求对象
-//
 type Request struct {
 	LocalIP   string // 本地 网络 IP
 	UserAgent string
@@ -67,7 +66,7 @@ type Request struct {
 	ChContentItem         chan []byte
 }
 
-//defaultRequestOptions 默认配置参数
+// defaultRequestOptions 默认配置参数
 func defaultRequest() *Request {
 	req := Request{
 		UserAgent:     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36",
@@ -109,6 +108,8 @@ type RequestOptions struct {
 	Timeout          time.Duration // 连接超时
 	ReadWriteTimeout time.Duration // 读写超时
 	KeepAliveTimeout time.Duration // 保持连接超时
+
+	TcpDelay time.Duration //TCP 连接成功后，延迟多久
 }
 
 //--------------------------------------------------------------------------------------------------------------
@@ -122,25 +123,25 @@ type requestOptionsInterface interface {
 	apply(*RequestOptions)
 }
 
-//funcRequestOption 定义面的接口使用
+// funcRequestOption 定义面的接口使用
 type funcRequestOptions struct {
 	anyfun func(*RequestOptions)
 }
 
-//apply 实现上面的接口，使用这个匿名函数，针对传入的对象，进行操作
+// apply 实现上面的接口，使用这个匿名函数，针对传入的对象，进行操作
 func (fro *funcRequestOptions) apply(req *RequestOptions) {
 	fro.anyfun(req)
 }
 
-//newFuncRequestOption 新建一个匿名函数实体。
-//返回接口地址
+// newFuncRequestOption 新建一个匿名函数实体。
+// 返回接口地址
 func newFuncRequests(anonfun func(ro *RequestOptions)) requestOptionsInterface {
 	return &funcRequestOptions{
 		anyfun: anonfun,
 	}
 }
 
-//OptRefererUrl 设置来源地址，返回接口指针(新建一个函数，不执行的，返回他的地址而已)
+// OptRefererUrl 设置来源地址，返回接口指针(新建一个函数，不执行的，返回他的地址而已)
 func OptRefererUrl(refererUrl string) requestOptionsInterface {
 	//return &funcRequests{
 	//	anyfun: func(ro *requests) {
@@ -153,57 +154,64 @@ func OptRefererUrl(refererUrl string) requestOptionsInterface {
 	})
 }
 
-//OptHeader 设置发送头
+// OptHeader 设置发送头
 func OptHeader(header map[string]string) requestOptionsInterface {
 	return newFuncRequests(func(ro *RequestOptions) {
 		ro.Header = header
 	})
 }
 
-//OptRedirectCount 重定向次数
+// OptRedirectCount 重定向次数
 func OptRedirectCount(redirectCount int) requestOptionsInterface {
 	return newFuncRequests(func(ro *RequestOptions) {
 		ro.RedirectCount = redirectCount
 	})
 }
 
-//OptCookie 设置当前Url cookie
+// OptCookie 设置当前Url cookie
 func OptCookie(cookie string) requestOptionsInterface {
 	return newFuncRequests(func(ro *RequestOptions) {
 		ro.Cookie = cookie
 	})
 }
 
-//OptCookieAll 设置当前Url+根Url cookie
+// OptCookieAll 设置当前Url+根Url cookie
 func OptCookieAll(cookieAll string) requestOptionsInterface {
 	return newFuncRequests(func(ro *RequestOptions) {
 		ro.CookieAll = cookieAll
 	})
 }
 
-//OptTimeout 设置超时
+// OptTimeout 设置超时
 func OptTimeout(timeout time.Duration) requestOptionsInterface {
 	return newFuncRequests(func(ro *RequestOptions) {
 		ro.Timeout = timeout
 	})
 }
 
-//OptReadWriteTimeout 设置读写超时
+// OptTcpDelay TCP 连接成功后，延迟多久
+func OptTcpDelay(tcpDelay time.Duration) requestOptionsInterface {
+	return newFuncRequests(func(ro *RequestOptions) {
+		ro.TcpDelay = tcpDelay
+	})
+}
+
+// OptReadWriteTimeout 设置读写超时
 func OptReadWriteTimeout(readWriteTimeout time.Duration) requestOptionsInterface {
 	return newFuncRequests(func(ro *RequestOptions) {
 		ro.ReadWriteTimeout = readWriteTimeout
 	})
 }
 
-//OptKeepAliveTimeout 设置保持连接，超时
+// OptKeepAliveTimeout 设置保持连接，超时
 func OptKeepAliveTimeout(keepAliveTimeout time.Duration) requestOptionsInterface {
 	return newFuncRequests(func(ro *RequestOptions) {
 		ro.KeepAliveTimeout = keepAliveTimeout
 	})
 }
 
-//SetTLSClientFile (server.ca)
-//单向 TLS，只验证 server.ca证书链
+// SetTLSClientFile (server.ca)
+// 单向 TLS，只验证 server.ca证书链
 func (req *Request) SetTLSClientFile(serverCaFile string) {
 	byteServerCa, err := os.ReadFile(serverCaFile)
 	if err != nil {
@@ -212,8 +220,8 @@ func (req *Request) SetTLSClientFile(serverCaFile string) {
 	req.SetTLSClient(byteServerCa)
 }
 
-//SetTLSClient (server.ca)
-//单向 TLS，只验证 server.ca证书链
+// SetTLSClient (server.ca)
+// 单向 TLS，只验证 server.ca证书链
 func (req *Request) SetTLSClient(serverCa []byte) {
 
 	req.tlsClientConfig = &tls.Config{RootCAs: LoadCa(serverCa),
@@ -221,8 +229,8 @@ func (req *Request) SetTLSClient(serverCa []byte) {
 	req.Verify = true
 }
 
-//SetmTLSClientFile ("client.crt", "client.key", "server.ca")
-//双向 mTLS  客户端证书  + 服务器 server.ca证书链
+// SetmTLSClientFile ("client.crt", "client.key", "server.ca")
+// 双向 mTLS  客户端证书  + 服务器 server.ca证书链
 func (req *Request) SetmTLSClientFile(clientCrtFile, clientKeyFile, serverCaFile string) {
 	byteClientCrt, err := os.ReadFile(clientCrtFile)
 	if err != nil {
@@ -239,8 +247,8 @@ func (req *Request) SetmTLSClientFile(clientCrtFile, clientKeyFile, serverCaFile
 	req.SetmTLSClient(byteClientCrt, byteClientKey, byteServerCa)
 }
 
-//SetmTLSClient ("client.crt", "client.key", "server.ca")
-//双向 mTLS  客户端证书  + 服务器 server.ca证书链  使用纯字符串可配置在应用中一起生成
+// SetmTLSClient ("client.crt", "client.key", "server.ca")
+// 双向 mTLS  客户端证书  + 服务器 server.ca证书链  使用纯字符串可配置在应用中一起生成
 func (req *Request) SetmTLSClient(clientCrt, clientKey, serverCa []byte) {
 	pair, e := tls.X509KeyPair(clientCrt, clientKey)
 	if e != nil {
