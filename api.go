@@ -10,10 +10,10 @@ import (
 	"fmt"
 	"github.com/andybalholm/brotli"
 	"io"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
@@ -201,21 +201,22 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 
 		var httpProxyInfoOK = ""
 		if req.HttpProxyAuto {
-			httpProxy := os.Getenv("http_proxy")
-			httpProxys := os.Getenv("https_proxy")
-			httpProxy = strings.ReplaceAll(httpProxy, "\n", "")
-			httpProxys = strings.ReplaceAll(httpProxys, "\n", "")
-			if len(httpProxy) > 0 {
-				httpProxyInfoOK = httpProxy
-				if strings.Index(httpProxyInfoOK, "http") == -1 {
-					httpProxyInfoOK = "http://" + httpProxyInfoOK
-				}
-			} else if len(httpProxys) > 0 {
-				httpProxyInfoOK = httpProxys
-				if strings.Index(httpProxyInfoOK, "http") == -1 {
-					httpProxyInfoOK = "https://" + httpProxyInfoOK
-				}
-			}
+			//httpProxy := os.Getenv("http_proxy")
+			//httpProxys := os.Getenv("https_proxy")
+			//httpProxy = strings.ReplaceAll(httpProxy, "\n", "")
+			//httpProxys = strings.ReplaceAll(httpProxys, "\n", "")
+			//if len(httpProxy) > 0 {
+			//	httpProxyInfoOK = httpProxy
+			//	if strings.Index(httpProxyInfoOK, "http") == -1 {
+			//		httpProxyInfoOK = "http://" + httpProxyInfoOK
+			//	}
+			//} else if len(httpProxys) > 0 {
+			//	httpProxyInfoOK = httpProxys
+			//	if strings.Index(httpProxyInfoOK, "http") == -1 {
+			//		httpProxyInfoOK = "https://" + httpProxyInfoOK
+			//	}
+			//}
+			ts.Proxy = http.ProxyFromEnvironment
 		}
 		if len(req.HttpProxyInfo) > 0 {
 			httpProxyInfoOK = req.HttpProxyInfo
@@ -306,6 +307,12 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 
 	httpClient.Jar = req.cookieJar
 	httpReq.Close = true
+
+	// 添加随机延迟（模拟浏览器行为）
+	rand.NewSource(time.Now().UnixNano())
+	delay := 3000 + rand.Intn(2000) // 3-5秒随机延迟
+	//fmt.Printf("等待 %dms 后发送请求...\n", delay)
+	time.Sleep(time.Duration(delay) * time.Millisecond)
 
 	httpRes, err := httpClient.Do(httpReq)
 
