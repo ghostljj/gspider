@@ -160,12 +160,12 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 		return res
 	}
 
-	ts := &http.Transport{
-		// 新增：缩短空闲连接超时时间，避免被服务器关闭
-		IdleConnTimeout:       30 * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
-		ResponseHeaderTimeout: 10 * time.Second,
-	}
+	ts := &http.Transport{}
+	ts.IdleConnTimeout = time.Second * 90       // 空闲连接的最长保持时间。超过此时间后，连接会被自动关闭。默认90
+	ts.TLSHandshakeTimeout = time.Second * 10   //限制执行TLS握手所花费的时间
+	ts.ResponseHeaderTimeout = time.Second * 10 //限制读取response header的时间
+	// ts.ExpectContinueTimeout = 1 * time.Second  //限制client在发送包含 Expect: 100-continue 的header到收到继续发送body的response之间的时间等待 POST才可能需要
+
 	// 新增：禁用 HTTP/2，强制使用 HTTP/1.1
 	//ts.TLSNextProto = make(map[string]func(authority string, c *tls.Conn) http.RoundTripper)
 	//超时设置  代理设置
@@ -187,10 +187,6 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 			}
 			netDialer.LocalAddr = &localTCPAddr
 		}
-
-		ts.TLSHandshakeTimeout = time.Second * 10   //限制执行TLS握手所花费的时间
-		ts.ResponseHeaderTimeout = time.Second * 10 //限制读取response header的时间
-		// ts.ExpectContinueTimeout = 1 * time.Second  //限制client在发送包含 Expect: 100-continue 的header到收到继续发送body的response之间的时间等待 POST才可能需要
 
 		if req.Verify && req.tlsClientConfig != nil {
 			ts.TLSClientConfig = req.tlsClientConfig

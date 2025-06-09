@@ -106,7 +106,7 @@ type RequestOptions struct {
 	RedirectCount int               // 重定向次数
 
 	Timeout          time.Duration // 秒 连接超时
-	ReadWriteTimeout time.Duration // 秒 读写超时
+	ReadWriteTimeout time.Duration // c
 	KeepAliveTimeout time.Duration // 秒 保持连接超时
 
 	TcpDelay time.Duration // 毫秒 TCP 连接成功后，延迟多久
@@ -182,28 +182,28 @@ func OptCookieAll(cookieAll string) requestOptionsInterface {
 	})
 }
 
-// OptTimeout 设置超时
+// OptTimeout 设置 秒 连接超时
 func OptTimeout(timeout time.Duration) requestOptionsInterface {
 	return newFuncRequests(func(ro *RequestOptions) {
 		ro.Timeout = timeout
 	})
 }
 
-// OptTcpDelay TCP 连接成功后，延迟多久
+// OptTcpDelay 毫秒  TCP 连接成功后，延迟多久
 func OptTcpDelay(tcpDelay time.Duration) requestOptionsInterface {
 	return newFuncRequests(func(ro *RequestOptions) {
 		ro.TcpDelay = tcpDelay
 	})
 }
 
-// OptReadWriteTimeout 设置读写超时
+// OptReadWriteTimeout 设置 秒 读写超时
 func OptReadWriteTimeout(readWriteTimeout time.Duration) requestOptionsInterface {
 	return newFuncRequests(func(ro *RequestOptions) {
 		ro.ReadWriteTimeout = readWriteTimeout
 	})
 }
 
-// OptKeepAliveTimeout 设置保持连接，超时
+// OptKeepAliveTimeout 设置 秒 保持连接，超时
 func OptKeepAliveTimeout(keepAliveTimeout time.Duration) requestOptionsInterface {
 	return newFuncRequests(func(ro *RequestOptions) {
 		ro.KeepAliveTimeout = keepAliveTimeout
