@@ -195,7 +195,10 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 		if req.Verify && req.tlsClientConfig != nil {
 			ts.TLSClientConfig = req.tlsClientConfig
 		} else {
-			ts.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //跳过证书验证
+			ts.TLSClientConfig = &tls.Config{
+				InsecureSkipVerify: true,
+			} //跳过证书验证
+
 		}
 
 		var httpProxyInfoOK = ""
@@ -249,11 +252,9 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 			}
 
 			// 创建基于 baseDialContext 的 SOCKS5 代理
-			netDialerNew, err := proxy.SOCKS5("tcp", req.Socks5Address, Socks5Auth,
-				&net.Dialer{ // 使用空的 Dialer，因为我们会在 baseDialContext 中处理连接
-					Timeout:   netDialer.Timeout,
-					KeepAlive: netDialer.KeepAlive,
-				},
+			netDialerNew, err := proxy.SOCKS5("tcp", req.Socks5Address,
+				Socks5Auth,
+				netDialer,
 			)
 
 			if err != nil {

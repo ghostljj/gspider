@@ -105,11 +105,11 @@ type RequestOptions struct {
 	CookieAll     string            // cookieAll  根url+单独url
 	RedirectCount int               // 重定向次数
 
-	Timeout          time.Duration // 连接超时
-	ReadWriteTimeout time.Duration // 读写超时
-	KeepAliveTimeout time.Duration // 保持连接超时
+	Timeout          time.Duration // 秒 连接超时
+	ReadWriteTimeout time.Duration // 秒 读写超时
+	KeepAliveTimeout time.Duration // 秒 保持连接超时
 
-	TcpDelay time.Duration //TCP 连接成功后，延迟多久
+	TcpDelay time.Duration // 毫秒 TCP 连接成功后，延迟多久
 }
 
 //--------------------------------------------------------------------------------------------------------------
