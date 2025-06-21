@@ -176,16 +176,34 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 		}
 
 		if len(req.LocalIP) > 0 { //设置本地网络ip
-			localAddr, err := net.ResolveIPAddr("ip", req.LocalIP)
-			if err != nil {
-				res.resBytes = []byte(err.Error())
-				res.err = err
-				return res
+
+			//var localAddr *net.IPAddr
+			var localTCPAddr *net.TCPAddr
+
+			// 判断是IP还是域名
+			if isIPAddress(req.LocalIP) {
+				// 直接解析IP
+				ip := net.ParseIP(req.LocalIP)
+				if ip == nil {
+					res.resBytes = []byte(fmt.Sprintf("无效的IP地址: %s", req.LocalIP))
+					res.err = fmt.Errorf("无效的IP地址: %s", req.LocalIP)
+					return res
+				}
+				localTCPAddr = &net.TCPAddr{IP: ip, Port: 0}
+			} else {
+				// 解析域名
+				addr, err := net.ResolveIPAddr("ip4", req.LocalIP) // 指定IPv4
+				if err != nil {
+					addr, err = net.ResolveIPAddr("ip6", req.LocalIP)
+					if err != nil {
+						res.resBytes = []byte(fmt.Sprintf("域名解析失败: %v", err))
+						res.err = err
+						return res
+					}
+				}
+				localTCPAddr = &net.TCPAddr{IP: addr.IP, Port: 0}
 			}
-			localTCPAddr := net.TCPAddr{
-				IP: localAddr.IP,
-			}
-			netDialer.LocalAddr = &localTCPAddr
+			netDialer.LocalAddr = localTCPAddr
 		}
 
 		if req.Verify && req.tlsClientConfig != nil {
@@ -194,7 +212,6 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 			ts.TLSClientConfig = &tls.Config{
 				InsecureSkipVerify: true,
 			} //跳过证书验证
-
 		}
 
 		var httpProxyInfoOK = ""
@@ -219,7 +236,7 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 		if len(req.HttpProxyInfo) > 0 {
 			httpProxyInfoOK = req.HttpProxyInfo
 		}
-		//ts.Dial = (netDialer).Dial //弃用，使用DialContext
+
 		if len(httpProxyInfoOK) > 0 { //http 代理设置
 			proxyUrl, err := url.Parse(httpProxyInfoOK)
 			if err != nil {
@@ -438,4 +455,15 @@ func pedanticReadAll(r io.Reader, req *Request) (b []byte, err error) {
 			return b, err
 		}
 	}
+}
+
+// 判断字符串是IP地址还是域名
+func isIPAddress(host string) bool {
+	// 检查是否包含端口（如 "example.com:80"）
+	if strings.Contains(host, ":") {
+		host, _, _ = net.SplitHostPort(host)
+	}
+
+	// 尝试解析为IP地址
+	return net.ParseIP(host) != nil
 }
