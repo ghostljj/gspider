@@ -176,6 +176,7 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 		}
 
 		if len(req.LocalIP) > 0 { //设置本地网络ip
+
 			//var localAddr *net.IPAddr
 			var localTCPAddr *net.TCPAddr
 
