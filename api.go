@@ -30,6 +30,7 @@ func (req *Request) GetRequestOptions(strUrl string, opts ...requestOptionsInter
 		RedirectCount:         30,
 		Timeout:               30,
 		ReadWriteTimeout:      30,
+		TLSHandshakeTimeout:   10,
 		ResponseHeaderTimeout: 10,
 		KeepAliveTimeout:      30,
 		TcpDelay:              0,
@@ -163,7 +164,7 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 
 	ts := &http.Transport{}
 	ts.IdleConnTimeout = time.Second * 90                             // 空闲连接的最长保持时间。超过此时间后，连接会被自动关闭。默认90
-	ts.TLSHandshakeTimeout = time.Second * 10                         // 限制执行TLS握手所花费的时间
+	ts.TLSHandshakeTimeout = rp.TLSHandshakeTimeout * time.Second     // 限制执行TLS握手所花费的时间
 	ts.ResponseHeaderTimeout = rp.ResponseHeaderTimeout * time.Second // 响应头超时时间
 	// ts.ExpectContinueTimeout = 1 * time.Second  //限制client在发送包含 Expect: 100-continue 的header到收到继续发送body的response之间的时间等待 POST才可能需要
 

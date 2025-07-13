@@ -107,6 +107,7 @@ type RequestOptions struct {
 
 	Timeout               time.Duration // 秒 TCP连接超时时间
 	ReadWriteTimeout      time.Duration // 秒 整个请求的超时时间
+	TLSHandshakeTimeout   time.Duration // 秒 限制执行TLS握手所花费的时间
 	ResponseHeaderTimeout time.Duration // 秒 响应头超时时间
 	KeepAliveTimeout      time.Duration // 秒 保持连接超时
 
@@ -201,6 +202,13 @@ func OptTcpDelay(tcpDelay time.Duration) requestOptionsInterface {
 func OptReadWriteTimeout(readWriteTimeout time.Duration) requestOptionsInterface {
 	return newFuncRequests(func(ro *RequestOptions) {
 		ro.ReadWriteTimeout = readWriteTimeout
+	})
+}
+
+// OptTLSHandshakeTimeout 设置 秒 限制执行TLS握手所花费的时间
+func OptTLSHandshakeTimeout(tlsHandshakeTimeout time.Duration) requestOptionsInterface {
+	return newFuncRequests(func(ro *RequestOptions) {
+		ro.TLSHandshakeTimeout = tlsHandshakeTimeout
 	})
 }
 
