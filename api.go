@@ -24,14 +24,15 @@ import (
 func (req *Request) GetRequestOptions(strUrl string, opts ...requestOptionsInterface) (ro *RequestOptions) {
 
 	ro = &RequestOptions{
-		IsPostJson:       -1,
-		IsGetJson:        -1,
-		Header:           make(map[string]string),
-		RedirectCount:    30,
-		Timeout:          30,
-		ReadWriteTimeout: 30,
-		KeepAliveTimeout: 30,
-		TcpDelay:         0,
+		IsPostJson:            -1,
+		IsGetJson:             -1,
+		Header:                make(map[string]string),
+		RedirectCount:         30,
+		Timeout:               30,
+		ReadWriteTimeout:      30,
+		ResponseHeaderTimeout: 10,
+		KeepAliveTimeout:      30,
+		TcpDelay:              0,
 	}
 	for _, opt := range opts {
 		opt.apply(ro) //这里是塞入实体，针对实体赋值
@@ -161,9 +162,9 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 	}
 
 	ts := &http.Transport{}
-	ts.IdleConnTimeout = time.Second * 90       // 空闲连接的最长保持时间。超过此时间后，连接会被自动关闭。默认90
-	ts.TLSHandshakeTimeout = time.Second * 10   //限制执行TLS握手所花费的时间
-	ts.ResponseHeaderTimeout = time.Second * 10 //限制读取response header的时间
+	ts.IdleConnTimeout = time.Second * 90                             // 空闲连接的最长保持时间。超过此时间后，连接会被自动关闭。默认90
+	ts.TLSHandshakeTimeout = time.Second * 10                         // 限制执行TLS握手所花费的时间
+	ts.ResponseHeaderTimeout = rp.ResponseHeaderTimeout * time.Second // 响应头超时时间
 	// ts.ExpectContinueTimeout = 1 * time.Second  //限制client在发送包含 Expect: 100-continue 的header到收到继续发送body的response之间的时间等待 POST才可能需要
 
 	// 新增：禁用 HTTP/2，强制使用 HTTP/1.1
