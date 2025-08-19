@@ -79,6 +79,15 @@ func (req *Request) DeleteJson(strUrl string, opts ...requestOptionsInterface) *
 	return req.request("DELETE", strUrl, "", ro)
 }
 
+func (req *Request) DeleteJsonR(strUrl, strPostData string, opts ...requestOptionsInterface) *Response {
+	ro := req.GetRequestOptions(strUrl, opts...)
+	ro.IsGetJson = 1
+	if strPostData != "" {
+		ro.IsPostJson = 1
+	}
+	return req.request("DELETE", strUrl, strPostData, ro)
+}
+
 // Post 方法
 func (req *Request) Post(strUrl, strPostData string, opts ...requestOptionsInterface) *Response {
 	ro := req.GetRequestOptions(strUrl, opts...)
@@ -181,8 +190,6 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 
 			//var localAddr *net.IPAddr
 			var localTCPAddr *net.TCPAddr
-
-			// 判断是IP还是域名
 			if isIPAddress(req.LocalIP) {
 				// 直接解析IP
 				ip := net.ParseIP(req.LocalIP)
