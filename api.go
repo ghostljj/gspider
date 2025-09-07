@@ -47,22 +47,35 @@ func (req *Request) GetRequestOptions(strUrl string, opts ...requestOptionsInter
 	return
 }
 
-func (req *Request) request(strMethod, strUrl, strPostData string, ro *RequestOptions) *Response {
+func (req *Request) request(strMethod, strUrl string, strPostData *string, ro *RequestOptions) *Response {
+	var bytePostData []byte
+	if strPostData != nil {
+		bytePostData = []byte(*strPostData)
+	}
+	return req.requestByte(strMethod, strUrl, bytePostData, ro)
+}
+
+func (req *Request) requestByte(strMethod, strUrl string, bytesPostData []byte, ro *RequestOptions) *Response {
 	if ro == nil {
 		ro = req.GetRequestOptions(strUrl)
 	}
-	return req.send(strMethod, strUrl, strPostData, ro)
+	return req.sendByte(strMethod, strUrl, bytesPostData, ro)
+}
+
+func (req *Request) XXX(strMethod, strUrl string, bytesPostData []byte, opts ...requestOptionsInterface) *Response {
+	ro := req.GetRequestOptions(strUrl, opts...)
+	return req.requestByte(strMethod, strUrl, bytesPostData, ro)
 }
 
 func (req *Request) Get(strUrl string, opts ...requestOptionsInterface) *Response {
 	ro := req.GetRequestOptions(strUrl, opts...)
-	return req.request("GET", strUrl, "", ro)
+	return req.request("GET", strUrl, nil, ro)
 }
 
 func (req *Request) GetJson(strUrl string, opts ...requestOptionsInterface) *Response {
 	ro := req.GetRequestOptions(strUrl, opts...)
 	ro.IsGetJson = 1
-	return req.request("GET", strUrl, "", ro)
+	return req.request("GET", strUrl, nil, ro)
 }
 func (req *Request) GetJsonR(strUrl, strPostData string, opts ...requestOptionsInterface) *Response {
 	ro := req.GetRequestOptions(strUrl, opts...)
@@ -70,13 +83,13 @@ func (req *Request) GetJsonR(strUrl, strPostData string, opts ...requestOptionsI
 	if strPostData != "" {
 		ro.IsPostJson = 1
 	}
-	return req.request("GET", strUrl, strPostData, ro)
+	return req.request("GET", strUrl, &strPostData, ro)
 }
 
 func (req *Request) DeleteJson(strUrl string, opts ...requestOptionsInterface) *Response {
 	ro := req.GetRequestOptions(strUrl, opts...)
 	ro.IsGetJson = 1
-	return req.request("DELETE", strUrl, "", ro)
+	return req.request("DELETE", strUrl, nil, ro)
 }
 
 func (req *Request) DeleteJsonR(strUrl, strPostData string, opts ...requestOptionsInterface) *Response {
@@ -85,46 +98,61 @@ func (req *Request) DeleteJsonR(strUrl, strPostData string, opts ...requestOptio
 	if strPostData != "" {
 		ro.IsPostJson = 1
 	}
-	return req.request("DELETE", strUrl, strPostData, ro)
+	return req.request("DELETE", strUrl, &strPostData, ro)
 }
 
 // Post 方法
 func (req *Request) Post(strUrl, strPostData string, opts ...requestOptionsInterface) *Response {
 	ro := req.GetRequestOptions(strUrl, opts...)
 	ro.IsPostJson = 0
-	return req.request("POST", strUrl, strPostData, ro)
+	return req.request("POST", strUrl, &strPostData, ro)
 }
+
+// Post 方法
+func (req *Request) PostBig(strUrl string, bytesPostData []byte, opts ...requestOptionsInterface) *Response {
+	ro := req.GetRequestOptions(strUrl, opts...)
+	timeOut := time.Duration(60 * 60 * 5)
+	if ro.Timeout <= timeOut {
+		ro.Timeout = timeOut
+	}
+	readWriteTimeout := time.Duration(60)
+	if ro.ReadWriteTimeout <= readWriteTimeout {
+		ro.ReadWriteTimeout = readWriteTimeout
+	}
+	return req.requestByte("POST", strUrl, bytesPostData, ro)
+}
+
 func (req *Request) PostJson(strUrl, strPostData string, opts ...requestOptionsInterface) *Response {
 	ro := req.GetRequestOptions(strUrl, opts...)
 	ro.IsPostJson = 1
 	ro.IsGetJson = 1
-	return req.request("POST", strUrl, strPostData, ro)
+	return req.request("POST", strUrl, &strPostData, ro)
 }
 
 // Put Put方法
 func (req *Request) Put(strUrl, strPostData string, opts ...requestOptionsInterface) *Response {
 	ro := req.GetRequestOptions(strUrl, opts...)
 	ro.IsPostJson = 0
-	return req.request("PUT", strUrl, strPostData, ro)
+	return req.request("PUT", strUrl, &strPostData, ro)
 }
 func (req *Request) PutJson(strUrl, strPostData string, opts ...requestOptionsInterface) *Response {
 	ro := req.GetRequestOptions(strUrl, opts...)
 	ro.IsGetJson = 1
 	ro.IsPostJson = 1
-	return req.request("PUT", strUrl, strPostData, ro)
+	return req.request("PUT", strUrl, &strPostData, ro)
 }
 
 // PATCH PATCH方法
 func (req *Request) Patch(strUrl, strPostData string, opts ...requestOptionsInterface) *Response {
 	ro := req.GetRequestOptions(strUrl, opts...)
 	ro.IsPostJson = 0
-	return req.request("PATCH", strUrl, strPostData, ro)
+	return req.request("PATCH", strUrl, &strPostData, ro)
 }
 func (req *Request) PatchJson(strUrl, strPostData string, opts ...requestOptionsInterface) *Response {
 	ro := req.GetRequestOptions(strUrl, opts...)
 	ro.IsGetJson = 1
 	ro.IsPostJson = 1
-	return req.request("PATCH", strUrl, strPostData, ro)
+	return req.request("PATCH", strUrl, &strPostData, ro)
 }
 
 // 获取img src 值
@@ -140,16 +168,22 @@ func (req *Request) GetBase64ImageSrc(strUrl string, opts ...requestOptionsInter
 // 获取Base64 字符串
 func (req *Request) GetBase64Image(strUrl string, opts ...requestOptionsInterface) (*Response, string) {
 	ro := req.GetRequestOptions(strUrl, opts...)
-	res := req.send("GET", strUrl, "", ro)
+	res := req.send("GET", strUrl, nil, ro)
 	return res, base64.StdEncoding.EncodeToString(res.GetBytes())
+}
+
+func (req *Request) send(strMethod, strUrl string, strPostData *string, rp *RequestOptions) *Response {
+	var bytesPostData []byte
+	if strPostData != nil {
+		bytesPostData = []byte(*strPostData)
+	}
+	return req.sendByte(strMethod, strUrl, bytesPostData, rp)
 }
 
 // SendRedirect 发送请求
 // strMethod GET POST PUT ...
-func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptions) *Response {
-
+func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp *RequestOptions) *Response {
 	res := newResponse(req)
-
 	strMethod = strings.ToUpper(strMethod)
 	reqURI, err := url.Parse(strUrl)
 	if err != nil {
@@ -162,9 +196,26 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 	httpClient := &http.Client{
 		Timeout: rp.ReadWriteTimeout * time.Second,
 	}
-	res.reqPostData = strPostData
-	bytesPostData := bytes.NewBuffer([]byte(strPostData))
-	httpReq, err := http.NewRequest(strMethod, strUrl, bytesPostData)
+
+	res.reqPostData = ""
+	if len(bytesPostData) <= 12000 {
+		res.reqPostData = string(bytesPostData)
+	}
+
+	progressReader := &UploadedProgressReader{
+		Reader:     bytes.NewReader(bytesPostData),
+		Total:      int64(len(bytesPostData)),
+		chUploaded: req.ChUploaded,
+		LastTime:   time.Now(),
+	}
+	defer func() {
+		err := progressReader.Close()
+		if err != nil {
+			res.err = err
+		}
+	}()
+	httpReq, err := http.NewRequest(strMethod, strUrl, progressReader)
+
 	if err != nil {
 		res.resBytes = []byte(err.Error())
 		res.err = err
@@ -416,20 +467,6 @@ func (req *Request) send(strMethod, strUrl, strPostData string, rp *RequestOptio
 	return res
 }
 
-func (req *Request) OnContent(f func(byteItem []byte)) {
-	req.ChContentItem = make(chan []byte, 1)
-	go func() {
-		for {
-			v, ok := <-req.ChContentItem
-			if ok {
-				f(v)
-			} else {
-				break
-			}
-		}
-	}()
-}
-
 // pedanticReadAll 读取所有字节
 func pedanticReadAll(r io.Reader, req *Request) (b []byte, err error) {
 	var bufa [64]byte
@@ -437,6 +474,10 @@ func pedanticReadAll(r io.Reader, req *Request) (b []byte, err error) {
 	var bItem []byte
 	defer func() {
 		if req.ChContentItem != nil {
+			// 关键修复：退出前发送残留的 bItem（若有）
+			if len(bItem) > 0 {
+				req.ChContentItem <- bItem
+			}
 			close(req.ChContentItem)
 		}
 	}()
@@ -453,10 +494,6 @@ func pedanticReadAll(r io.Reader, req *Request) (b []byte, err error) {
 			bItem = bItem[:0]
 		}
 		if err == io.EOF {
-			n, err := r.Read(buf)
-			if n != 0 || err != io.EOF {
-				return nil, fmt.Errorf("Read: n=%d err=%#v after EOF", n, err)
-			}
 			return b, nil
 		}
 
@@ -475,4 +512,34 @@ func isIPAddress(host string) bool {
 
 	// 尝试解析为IP地址
 	return net.ParseIP(host) != nil
+}
+
+// OnUploaded 上传回调
+func (req *Request) OnUploaded(f func(uploaded *int64)) {
+	req.ChUploaded = make(chan *int64, 1)
+	go func() {
+		for {
+			v, ok := <-req.ChUploaded
+			if ok {
+				f(v)
+			} else {
+				break
+			}
+		}
+	}()
+}
+
+// OnContent 实现内容回调
+func (req *Request) OnContent(f func(byteItem []byte)) {
+	req.ChContentItem = make(chan []byte, 1)
+	go func() {
+		for {
+			v, ok := <-req.ChContentItem
+			if ok {
+				f(v)
+			} else {
+				break
+			}
+		}
+	}()
 }
