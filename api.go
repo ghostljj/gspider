@@ -427,6 +427,13 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	}
 	defer httpRes.Body.Close()
 
+	if req.ChContentItem != nil {
+		contentLength := httpRes.ContentLength
+		if contentLength >= 0 {
+			req.ChContentItem <- []byte(fmt.Sprintf("content-length:%d", contentLength))
+		}
+	}
+
 	//返回 响应 Cookies
 	res.resCookies = httpRes.Cookies()
 	//设置 响应 头信息
