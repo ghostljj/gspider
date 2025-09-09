@@ -24,6 +24,7 @@ import (
 func (req *Request) GetRequestOptions(strUrl string, opts ...requestOptionsInterface) (ro *RequestOptions) {
 
 	ro = &RequestOptions{
+		ReadByteSize:          1024 * 4,
 		IsPostJson:            -1,
 		IsGetJson:             -1,
 		Header:                make(map[string]string),
@@ -458,7 +459,7 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 		}
 	}
 
-	if res.resBytes, err = pedanticReadAll(reader, req); err != nil {
+	if res.resBytes, err = pedanticReadAll(rp.ReadByteSize, reader, req); err != nil {
 		res.resBytes = []byte(err.Error())
 		res.err = err
 		return res
@@ -468,8 +469,8 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 }
 
 // pedanticReadAll 读取所有字节
-func pedanticReadAll(r io.Reader, req *Request) (b []byte, err error) {
-	var bufa [64]byte
+func pedanticReadAll(readByteSize int, r io.Reader, req *Request) (b []byte, err error) {
+	bufa := make([]byte, readByteSize)
 	buf := bufa[:]
 	var bItem []byte
 	defer func() {

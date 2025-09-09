@@ -98,6 +98,7 @@ func Session() *Request {
 }
 
 type RequestOptions struct {
+	ReadByteSize  int               // 读取字节大小
 	RefererUrl    string            // 来源url
 	IsGetJson     int               // 是否接收 Json  -1不发 0否 1是
 	IsPostJson    int               // 是否提交 Json  -1不发 0否 1是
@@ -142,6 +143,13 @@ func newFuncRequests(anonfun func(ro *RequestOptions)) requestOptionsInterface {
 	return &funcRequestOptions{
 		anyfun: anonfun,
 	}
+}
+
+// OptReadByteSize 设置读写大小
+func OptReadByteSize(readByteSize int) requestOptionsInterface {
+	return newFuncRequests(func(ro *RequestOptions) {
+		ro.ReadByteSize = readByteSize
+	})
 }
 
 // OptRefererUrl 设置来源地址，返回接口指针(新建一个函数，不执行的，返回他的地址而已)
