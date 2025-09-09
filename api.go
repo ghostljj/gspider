@@ -482,7 +482,6 @@ func pedanticReadAll(readByteSize int, r io.Reader, req *Request) (b []byte, err
 	var bItem []byte
 	defer func() {
 		if req.ChContentItem != nil {
-			// 关键修复：退出前发送残留的 bItem（若有）
 			if len(bItem) > 0 {
 				req.ChContentItem <- bItem
 			}
@@ -497,15 +496,23 @@ func pedanticReadAll(readByteSize int, r io.Reader, req *Request) (b []byte, err
 		b = append(b, buf[:n]...)
 		bItem = append(bItem, buf[:n]...)
 
-		if req.ChContentItem != nil && bytes.Contains(buf[:n], []byte("\n")) { // 如果item以两个换行符结尾，说明一个事件结束了
+		if req.ChContentItem != nil && bytes.Contains(buf[:n], []byte("\n")) {
 			req.ChContentItem <- bItem
 			bItem = bItem[:0]
 		}
-		if err == io.EOF {
-			return b, nil
-		}
 
+		// 先处理错误前的残留数据，再处理错误
 		if err != nil {
+			// 如果是EOF且还有未发送的数据，先发送
+			if err == io.EOF && req.ChContentItem != nil && len(bItem) > 0 {
+				req.ChContentItem <- bItem
+				bItem = bItem[:0]
+			}
+			// 对于EOF，我们返回已读取的数据和nil错误
+			if err == io.EOF {
+				return b, nil
+			}
+			// 其他错误返回
 			return b, err
 		}
 	}
