@@ -207,7 +207,7 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	progressReader := &UploadedProgressReader{
 		Reader:     bytes.NewReader(bytesPostData),
 		Total:      int64(len(bytesPostData)),
-		chUploaded: req.chUploaded,
+		chUploaded: req.ChUploaded,
 		LastTime:   time.Now(),
 		ctx:        ctx,
 	}
@@ -431,10 +431,10 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	}
 	defer httpRes.Body.Close()
 
-	if req.chContentItem != nil {
+	if req.ChContentItem != nil {
 		contentLength := httpRes.ContentLength
 		if contentLength >= 0 {
-			req.chContentItem <- []byte(fmt.Sprintf("content-length:%d", contentLength))
+			req.ChContentItem <- []byte(fmt.Sprintf("content-length:%d", contentLength))
 		}
 	}
 
@@ -485,11 +485,11 @@ func pedanticReadAll(readByteSize int, r io.Reader, req *Request, ctx context.Co
 	buf := bufa[:]
 	var bItem []byte
 	defer func() {
-		if req.chContentItem != nil {
+		if req.ChContentItem != nil {
 			if len(bItem) > 0 {
-				req.chContentItem <- bItem
+				req.ChContentItem <- bItem
 			}
-			close(req.chContentItem)
+			close(req.ChContentItem)
 		}
 	}()
 	for {
@@ -506,16 +506,16 @@ func pedanticReadAll(readByteSize int, r io.Reader, req *Request, ctx context.Co
 		b = append(b, buf[:n]...)
 		bItem = append(bItem, buf[:n]...)
 
-		if req.chContentItem != nil && bytes.Contains(buf[:n], []byte("\n")) {
-			req.chContentItem <- bItem
+		if req.ChContentItem != nil && bytes.Contains(buf[:n], []byte("\n")) {
+			req.ChContentItem <- bItem
 			bItem = bItem[:0]
 		}
 
 		// 先处理错误前的残留数据，再处理错误
 		if err != nil {
 			// 如果是EOF且还有未发送的数据，先发送
-			if err == io.EOF && req.chContentItem != nil && len(bItem) > 0 {
-				req.chContentItem <- bItem
+			if err == io.EOF && req.ChContentItem != nil && len(bItem) > 0 {
+				req.ChContentItem <- bItem
 				bItem = bItem[:0]
 			}
 			// 对于EOF，我们返回已读取的数据和nil错误
@@ -541,10 +541,10 @@ func isIPAddress(host string) bool {
 
 // OnUploaded 上传回调
 func (req *Request) OnUploaded(f func(uploaded *int64, req *Request)) {
-	req.chUploaded = make(chan *int64, 1)
+	req.ChUploaded = make(chan *int64, 1)
 	go func() {
 		for {
-			v, ok := <-req.chUploaded
+			v, ok := <-req.ChUploaded
 			if ok {
 				f(v, req)
 			} else {
@@ -556,10 +556,10 @@ func (req *Request) OnUploaded(f func(uploaded *int64, req *Request)) {
 
 // OnContent 实现内容回调
 func (req *Request) OnContent(f func(byteItem []byte, req *Request)) {
-	req.chContentItem = make(chan []byte, 1)
+	req.ChContentItem = make(chan []byte, 1)
 	go func() {
 		for {
-			v, ok := <-req.chContentItem
+			v, ok := <-req.ChContentItem
 			if ok {
 				f(v, req)
 			} else {
