@@ -12,6 +12,7 @@
 package gspider
 
 import (
+	"context"
 	"crypto/tls"
 	"net/http"
 	"os"
@@ -51,6 +52,7 @@ type SendCookieAll map[string]string
 type Request struct {
 	LocalIP   string // 本地 网络 IP
 	UserAgent string
+	cancel    context.CancelFunc // 中断请求/响应
 
 	HttpProxyInfo string // 设置Http代理 例：http://127.0.0.1:1081
 	HttpProxyAuto bool   // 自动获取http_proxy变量 默认不开启
@@ -63,8 +65,14 @@ type Request struct {
 	tlsClientConfig *tls.Config    // 证书验证配置
 
 	defaultHeaderTemplate map[string]string //发送 请求 头 一些默认值
-	ChUploaded            chan *int64
-	ChContentItem         chan []byte
+	chUploaded            chan *int64
+	chContentItem         chan []byte
+}
+
+func (req *Request) Cancel() {
+	if req.cancel != nil {
+		req.cancel()
+	}
 }
 
 // defaultRequestOptions 默认配置参数

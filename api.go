@@ -203,11 +203,13 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 		res.reqPostData = string(bytesPostData)
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
 	progressReader := &UploadedProgressReader{
 		Reader:     bytes.NewReader(bytesPostData),
 		Total:      int64(len(bytesPostData)),
-		chUploaded: req.ChUploaded,
+		chUploaded: req.chUploaded,
 		LastTime:   time.Now(),
+		ctx:        ctx,
 	}
 	defer func() {
 		err := progressReader.Close()
@@ -215,7 +217,9 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 			res.err = err
 		}
 	}()
-	httpReq, err := http.NewRequest(strMethod, strUrl, progressReader)
+
+	httpReq, err := http.NewRequestWithContext(ctx, strMethod, strUrl, progressReader)
+	req.cancel = cancel
 
 	if err != nil {
 		res.resBytes = []byte(err.Error())
@@ -427,10 +431,10 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	}
 	defer httpRes.Body.Close()
 
-	if req.ChContentItem != nil {
+	if req.chContentItem != nil {
 		contentLength := httpRes.ContentLength
 		if contentLength >= 0 {
-			req.ChContentItem <- []byte(fmt.Sprintf("content-length:%d", contentLength))
+			req.chContentItem <- []byte(fmt.Sprintf("content-length:%d", contentLength))
 		}
 	}
 
@@ -466,7 +470,7 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 		}
 	}
 
-	if res.resBytes, err = pedanticReadAll(rp.ReadByteSize, reader, req); err != nil {
+	if res.resBytes, err = pedanticReadAll(rp.ReadByteSize, reader, req, ctx); err != nil {
 		res.resBytes = []byte(err.Error())
 		res.err = err
 		return res
@@ -476,19 +480,25 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 }
 
 // pedanticReadAll 读取所有字节
-func pedanticReadAll(readByteSize int, r io.Reader, req *Request) (b []byte, err error) {
+func pedanticReadAll(readByteSize int, r io.Reader, req *Request, ctx context.Context) (b []byte, err error) {
 	bufa := make([]byte, readByteSize)
 	buf := bufa[:]
 	var bItem []byte
 	defer func() {
-		if req.ChContentItem != nil {
+		if req.chContentItem != nil {
 			if len(bItem) > 0 {
-				req.ChContentItem <- bItem
+				req.chContentItem <- bItem
 			}
-			close(req.ChContentItem)
+			close(req.chContentItem)
 		}
 	}()
 	for {
+		// 关键：监听 ctx 取消信号，触发则立即中断下载
+		select {
+		case <-ctx.Done():
+			return b, ctx.Err() // 返回已读取数据 + 取消错误
+		default:
+		}
 		n, err := r.Read(buf)
 		if n == 0 && err == nil {
 			return nil, fmt.Errorf("Read: n=0 with err=nil")
@@ -496,16 +506,16 @@ func pedanticReadAll(readByteSize int, r io.Reader, req *Request) (b []byte, err
 		b = append(b, buf[:n]...)
 		bItem = append(bItem, buf[:n]...)
 
-		if req.ChContentItem != nil && bytes.Contains(buf[:n], []byte("\n")) {
-			req.ChContentItem <- bItem
+		if req.chContentItem != nil && bytes.Contains(buf[:n], []byte("\n")) {
+			req.chContentItem <- bItem
 			bItem = bItem[:0]
 		}
 
 		// 先处理错误前的残留数据，再处理错误
 		if err != nil {
 			// 如果是EOF且还有未发送的数据，先发送
-			if err == io.EOF && req.ChContentItem != nil && len(bItem) > 0 {
-				req.ChContentItem <- bItem
+			if err == io.EOF && req.chContentItem != nil && len(bItem) > 0 {
+				req.chContentItem <- bItem
 				bItem = bItem[:0]
 			}
 			// 对于EOF，我们返回已读取的数据和nil错误
@@ -530,13 +540,13 @@ func isIPAddress(host string) bool {
 }
 
 // OnUploaded 上传回调
-func (req *Request) OnUploaded(f func(uploaded *int64)) {
-	req.ChUploaded = make(chan *int64, 1)
+func (req *Request) OnUploaded(f func(uploaded *int64, req *Request)) {
+	req.chUploaded = make(chan *int64, 1)
 	go func() {
 		for {
-			v, ok := <-req.ChUploaded
+			v, ok := <-req.chUploaded
 			if ok {
-				f(v)
+				f(v, req)
 			} else {
 				break
 			}
@@ -545,13 +555,13 @@ func (req *Request) OnUploaded(f func(uploaded *int64)) {
 }
 
 // OnContent 实现内容回调
-func (req *Request) OnContent(f func(byteItem []byte)) {
-	req.ChContentItem = make(chan []byte, 1)
+func (req *Request) OnContent(f func(byteItem []byte, req *Request)) {
+	req.chContentItem = make(chan []byte, 1)
 	go func() {
 		for {
-			v, ok := <-req.ChContentItem
+			v, ok := <-req.chContentItem
 			if ok {
-				f(v)
+				f(v, req)
 			} else {
 				break
 			}
