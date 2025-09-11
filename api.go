@@ -431,11 +431,8 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	}
 	defer httpRes.Body.Close()
 
-	if req.ChContentItem != nil {
-		contentLength := httpRes.ContentLength
-		if contentLength >= 0 {
-			req.ChContentItem <- []byte(fmt.Sprintf("content-length:%d", contentLength))
-		}
+	if req.chResHeader != nil {
+		req.chResHeader <- httpRes.Header
 	}
 
 	//返回 响应 Cookies
@@ -558,6 +555,21 @@ func isIPAddress(host string) bool {
 
 	// 尝试解析为IP地址
 	return net.ParseIP(host) != nil
+}
+
+// OnResHeader 响应头回调
+func (req *Request) OnResHeader(f func(header http.Header, req *Request)) {
+	req.chResHeader = make(chan http.Header, 1)
+	go func() {
+		for {
+			v, ok := <-req.chResHeader
+			if ok {
+				f(v, req)
+			} else {
+				break
+			}
+		}
+	}()
 }
 
 // OnUploaded 上传回调

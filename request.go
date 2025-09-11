@@ -65,6 +65,7 @@ type Request struct {
 	tlsClientConfig *tls.Config    // 证书验证配置
 
 	defaultHeaderTemplate map[string]string //发送 请求 头 一些默认值
+	chResHeader           chan http.Header
 	ChUploaded            chan *int64
 	ChContentItem         chan []byte
 }
