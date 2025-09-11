@@ -61,6 +61,7 @@ func (pr *UploadedProgressReader) Close() error {
 		default:
 		}
 		close(pr.chUploaded)
+		pr.chUploaded = nil
 		pr.closed = true
 	}
 

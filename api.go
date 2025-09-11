@@ -422,7 +422,12 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	httpReq.Close = true
 
 	httpRes, err := httpClient.Do(httpReq)
-
+	defer func() {
+		if req.chResHeader != nil {
+			close(req.chResHeader) // 关闭信道，通知接收方退出
+			req.chResHeader = nil
+		}
+	}()
 	if err != nil {
 		//httpReq.Response.Close
 		res.resBytes = []byte(err.Error())
@@ -492,6 +497,7 @@ func pedanticReadAll(readByteSize int, r io.Reader, req *Request, ctx context.Co
 				}
 			}
 			close(req.ChContentItem)
+			req.ChContentItem = nil
 		}
 	}()
 	for {
