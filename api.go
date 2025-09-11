@@ -483,79 +483,105 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	return res
 }
 
+type channelWriter struct {
+	ch  chan<- []byte
+	ctx context.Context
+}
+
+func (w *channelWriter) Write(p []byte) (n int, err error) {
+	dataCopy := make([]byte, len(p))
+	copy(dataCopy, p)
+	select {
+	case w.ch <- dataCopy:
+		return len(p), nil
+	case <-w.ctx.Done():
+		return 0, w.ctx.Err()
+	}
+}
+
 // pedanticReadAll 读取所有字节
 func pedanticReadAll(readByteSize int, r io.Reader, req *Request, ctx context.Context, isText bool) (b []byte, err error) {
+
 	buf := make([]byte, readByteSize)
 	var bItem []byte // bItem 仅用于文本模式下累积数据
 
-	defer func() {
-		if req.ChContentItem != nil {
-			if len(bItem) > 0 {
-				dataCopy := make([]byte, len(bItem))
-				copy(dataCopy, bItem)
-				select {
-				case req.ChContentItem <- dataCopy:
-				case <-ctx.Done(): // 上下文已取消，忽略发送失败
-				}
-			}
-			close(req.ChContentItem)
-			req.ChContentItem = nil
+	// 提取公共发送函数，减少重复代码
+	sendData := func(data []byte) error {
+		if req.ChContentItem == nil {
+			return fmt.Errorf("channel is nil")
 		}
+		select {
+		case req.ChContentItem <- data:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+
+	defer func() {
+		// 确保所有数据都被发送
+		if req.ChContentItem != nil && len(bItem) > 0 {
+			dataCopy := make([]byte, len(bItem))
+			copy(dataCopy, bItem)
+			if err := sendData(dataCopy); err != nil {
+				// Log warning if sending remaining data fails
+				fmt.Printf("Warning: Failed to send remaining data (size: %d): %v\n", len(dataCopy), err)
+			}
+		}
+		if req.ChContentItem != nil {
+			close(req.ChContentItem)
+		}
+		req.ChContentItem = nil
 	}()
 	for {
-		// 关键：监听 ctx 取消信号，触发则立即中断下载
 		select {
 		case <-ctx.Done():
-			return b, ctx.Err() // 返回已读取数据 + 取消错误
+			// 处理中断信号，立即返回已读取的数据和错误
+			return b, ctx.Err()
 		default:
 		}
 		n, err := r.Read(buf)
 		if n == 0 && err == nil {
-			return nil, fmt.Errorf("Read: n=0 with err=nil")
+			return nil, fmt.Errorf("Read: n=0 with err=nil") // 出现这种情况时说明发生了未知错误
 		}
-
-		b = append(b, buf[:n]...)
-
-		// 根据内容类型选择处理方式
-		if isText {
-			// 文本内容：按行发送
-			bItem = append(bItem, buf[:n]...)
-			if req.ChContentItem != nil && bytes.Contains(buf[:n], []byte("\n")) {
-				dataCopy := make([]byte, len(bItem))
-				copy(dataCopy, bItem)
-				select {
-				case req.ChContentItem <- dataCopy:
-				case <-ctx.Done():
+		// 累积数据到结果
+		if n > 0 {
+			b = append(b, buf[:n]...)
+			// 根据内容类型选择处理方式
+			if isText {
+				bItem = append(bItem, buf[:n]...)
+				// 文本模式按行发送
+				if bytes.Contains(buf[:n], []byte("\n")) {
+					dataCopy := make([]byte, len(bItem))
+					copy(dataCopy, bItem)
+					if err := sendData(dataCopy); err != nil {
+						return b, err
+					}
+					bItem = bItem[:0] // 清空已发送数据
 				}
-				bItem = bItem[:0]
-			}
-		} else {
-			// 二进制内容：按块发送
-			if n > 0 && req.ChContentItem != nil {
+			} else {
+				// 二进制模式按块发送
 				dataCopy := make([]byte, n)
 				copy(dataCopy, buf[:n])
-				select {
-				case req.ChContentItem <- dataCopy:
-				case <-ctx.Done():
+				if err := sendData(dataCopy); err != nil {
+					return b, err
 				}
 			}
 		}
 
 		// 先处理错误前的残留数据，再处理错误
 		if err != nil {
-			// 如果是EOF且还有未发送的数据，先发送
-			if err == io.EOF && req.ChContentItem != nil && len(bItem) > 0 {
+			if err == io.EOF && isText && len(bItem) > 0 {
+				// 如果是EOF并且有残留数据，强制发送
 				dataCopy := make([]byte, len(bItem))
 				copy(dataCopy, bItem)
-				req.ChContentItem <- dataCopy
+				if err := sendData(dataCopy); err != nil {
+					// Log the failure, but allow function to return EOF
+					fmt.Printf("Warning: Failed to send remaining text data (size: %d): %v\n", len(dataCopy), err)
+				}
 				bItem = bItem[:0]
 			}
-			// 对于EOF，我们返回已读取的数据和nil错误
-			if err == io.EOF {
-				return b, nil
-			}
-			// 其他错误返回
-			return b, err
+			return b, nil // EOF正常返回，其他错误返回
 		}
 	}
 }
@@ -571,12 +597,19 @@ func isIPAddress(host string) bool {
 	return net.ParseIP(host) != nil
 }
 
-// OnResHeader 响应头回调
-func (req *Request) OnHttpResponse(f func(httpRes *http.Response, req *Request)) {
-	req.chHttpResponse = make(chan *http.Response, 1)
+// handleCallback 是一个泛型函数，用于处理任何 channel 和回调函数。
+// T 是 channel 中传递的数据类型。
+// req 是请求对象
+func handleCallback[T any](ch <-chan T, f func(T, *Request), req *Request) {
 	go func() {
+		// 增加 recover 保护，防止回调函数 panic
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Printf("Callback panic: %v\n", r)
+			}
+		}()
 		for {
-			v, ok := <-req.chHttpResponse
+			v, ok := <-ch
 			if ok {
 				f(v, req)
 			} else {
@@ -584,34 +617,22 @@ func (req *Request) OnHttpResponse(f func(httpRes *http.Response, req *Request))
 			}
 		}
 	}()
+}
+
+// OnHttpResponse 响应头回调
+func (req *Request) OnHttpResponse(f func(httpRes *http.Response, req *Request)) {
+	req.chHttpResponse = make(chan *http.Response, 1)
+	handleCallback(req.chHttpResponse, f, req)
 }
 
 // OnUploaded 上传回调
 func (req *Request) OnUploaded(f func(uploaded *int64, req *Request)) {
-	req.ChUploaded = make(chan *int64, 1)
-	go func() {
-		for {
-			v, ok := <-req.ChUploaded
-			if ok {
-				f(v, req)
-			} else {
-				break
-			}
-		}
-	}()
+	req.ChUploaded = make(chan *int64, 10)
+	handleCallback(req.ChUploaded, f, req)
 }
 
 // OnContent 实现内容回调
 func (req *Request) OnContent(f func(byteItem []byte, req *Request)) {
-	req.ChContentItem = make(chan []byte, 1)
-	go func() {
-		for {
-			v, ok := <-req.ChContentItem
-			if ok {
-				f(v, req)
-			} else {
-				break
-			}
-		}
-	}()
+	req.ChContentItem = make(chan []byte, 10)
+	handleCallback(req.ChContentItem, f, req)
 }
