@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -27,7 +28,7 @@ func (pr *UploadedProgressReader) Read(p []byte) (n int, err error) {
 	}
 	// 1. 先读取原始数据（核心逻辑不变）
 	n, err = pr.Reader.Read(p)
-	pr.Uploaded += int64(n)
+	atomic.AddInt64(&pr.Uploaded, int64(n))
 
 	// 2. 加锁判断信道是否已关闭（防止 Close 与 Read 并发执行）
 	pr.mu.Lock()
@@ -42,8 +43,9 @@ func (pr *UploadedProgressReader) Read(p []byte) (n int, err error) {
 	// 4. 按原逻辑判断是否需要发送进度（非阻塞发送）
 	if time.Since(pr.LastTime).Milliseconds() > 500 {
 		pr.LastTime = time.Now()
+		current := atomic.LoadInt64(&pr.Uploaded)
 		select {
-		case pr.chUploaded <- &pr.Uploaded: // 发送进度
+		case pr.chUploaded <- &current: // 发送进度
 		default: // 信道满/已关闭时容错（避免阻塞）
 		}
 	}
