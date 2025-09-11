@@ -491,6 +491,8 @@ func pedanticReadAll(readByteSize int, r io.Reader, req *Request, ctx context.Co
 	defer func() {
 		if req.ChContentItem != nil {
 			if len(bItem) > 0 {
+				dataCopy := make([]byte, len(bItem))
+				copy(dataCopy, bItem)
 				select {
 				case req.ChContentItem <- bItem:
 				case <-ctx.Done(): // 上下文已取消，忽略发送失败
@@ -519,8 +521,10 @@ func pedanticReadAll(readByteSize int, r io.Reader, req *Request, ctx context.Co
 			// 文本内容：按行发送
 			bItem = append(bItem, buf[:n]...)
 			if req.ChContentItem != nil && bytes.Contains(buf[:n], []byte("\n")) {
+				dataCopy := make([]byte, len(bItem))
+				copy(dataCopy, bItem)
 				select {
-				case req.ChContentItem <- bItem:
+				case req.ChContentItem <- dataCopy:
 				case <-ctx.Done():
 				}
 				bItem = bItem[:0]
@@ -528,6 +532,8 @@ func pedanticReadAll(readByteSize int, r io.Reader, req *Request, ctx context.Co
 		} else {
 			// 二进制内容：按块发送
 			if n > 0 && req.ChContentItem != nil {
+				dataCopy := make([]byte, n)
+				copy(dataCopy, buf[:n])
 				select {
 				case req.ChContentItem <- buf[:n]:
 				case <-ctx.Done():
@@ -539,7 +545,9 @@ func pedanticReadAll(readByteSize int, r io.Reader, req *Request, ctx context.Co
 		if err != nil {
 			// 如果是EOF且还有未发送的数据，先发送
 			if err == io.EOF && req.ChContentItem != nil && len(bItem) > 0 {
-				req.ChContentItem <- bItem
+				dataCopy := make([]byte, len(bItem))
+				copy(dataCopy, bItem)
+				req.ChContentItem <- dataCopy
 				bItem = bItem[:0]
 			}
 			// 对于EOF，我们返回已读取的数据和nil错误
