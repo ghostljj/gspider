@@ -469,8 +469,10 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 			reader = httpRes.Body
 		}
 	}
+	contentType := httpRes.Header.Get("Content-Type")
+	isText := strings.HasPrefix(contentType, "text/") || strings.Contains(contentType, "application/json")
 
-	if res.resBytes, err = pedanticReadAll(rp.ReadByteSize, reader, req, ctx); err != nil {
+	if res.resBytes, err = pedanticReadAll(rp.ReadByteSize, reader, req, ctx, isText); err != nil {
 		res.resBytes = []byte(err.Error())
 		res.err = err
 		return res
@@ -480,14 +482,17 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 }
 
 // pedanticReadAll 读取所有字节
-func pedanticReadAll(readByteSize int, r io.Reader, req *Request, ctx context.Context) (b []byte, err error) {
-	bufa := make([]byte, readByteSize)
-	buf := bufa[:]
-	var bItem []byte
+func pedanticReadAll(readByteSize int, r io.Reader, req *Request, ctx context.Context, isText bool) (b []byte, err error) {
+	buf := make([]byte, readByteSize)
+	var bItem []byte // bItem 仅用于文本模式下累积数据
+
 	defer func() {
 		if req.ChContentItem != nil {
 			if len(bItem) > 0 {
-				req.ChContentItem <- bItem
+				select {
+				case req.ChContentItem <- bItem:
+				case <-ctx.Done(): // 上下文已取消，忽略发送失败
+				}
 			}
 			close(req.ChContentItem)
 		}
@@ -503,12 +508,28 @@ func pedanticReadAll(readByteSize int, r io.Reader, req *Request, ctx context.Co
 		if n == 0 && err == nil {
 			return nil, fmt.Errorf("Read: n=0 with err=nil")
 		}
-		b = append(b, buf[:n]...)
-		bItem = append(bItem, buf[:n]...)
 
-		if req.ChContentItem != nil && bytes.Contains(buf[:n], []byte("\n")) {
-			req.ChContentItem <- bItem
-			bItem = bItem[:0]
+		b = append(b, buf[:n]...)
+
+		// 根据内容类型选择处理方式
+		if isText {
+			// 文本内容：按行发送
+			bItem = append(bItem, buf[:n]...)
+			if req.ChContentItem != nil && bytes.Contains(buf[:n], []byte("\n")) {
+				select {
+				case req.ChContentItem <- bItem:
+				case <-ctx.Done():
+				}
+				bItem = bItem[:0]
+			}
+		} else {
+			// 二进制内容：按块发送
+			if n > 0 && req.ChContentItem != nil {
+				select {
+				case req.ChContentItem <- buf[:n]:
+				case <-ctx.Done():
+				}
+			}
 		}
 
 		// 先处理错误前的残留数据，再处理错误
