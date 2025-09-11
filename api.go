@@ -494,7 +494,7 @@ func pedanticReadAll(readByteSize int, r io.Reader, req *Request, ctx context.Co
 				dataCopy := make([]byte, len(bItem))
 				copy(dataCopy, bItem)
 				select {
-				case req.ChContentItem <- bItem:
+				case req.ChContentItem <- dataCopy:
 				case <-ctx.Done(): // 上下文已取消，忽略发送失败
 				}
 			}
