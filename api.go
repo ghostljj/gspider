@@ -423,9 +423,9 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 
 	httpRes, err := httpClient.Do(httpReq)
 	defer func() {
-		if req.chResHeader != nil {
-			close(req.chResHeader) // 关闭信道，通知接收方退出
-			req.chResHeader = nil
+		if req.chHttpResponse != nil {
+			close(req.chHttpResponse) // 关闭信道，通知接收方退出
+			req.chHttpResponse = nil
 		}
 	}()
 	if err != nil {
@@ -436,8 +436,8 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	}
 	defer httpRes.Body.Close()
 
-	if req.chResHeader != nil {
-		req.chResHeader <- httpRes.Header
+	if req.chHttpResponse != nil {
+		req.chHttpResponse <- httpRes
 	}
 
 	//返回 响应 Cookies
@@ -564,11 +564,11 @@ func isIPAddress(host string) bool {
 }
 
 // OnResHeader 响应头回调
-func (req *Request) OnResHeader(f func(header http.Header, req *Request)) {
-	req.chResHeader = make(chan http.Header, 1)
+func (req *Request) OnHttpResponse(f func(httpRes *http.Response, req *Request)) {
+	req.chHttpResponse = make(chan *http.Response, 1)
 	go func() {
 		for {
-			v, ok := <-req.chResHeader
+			v, ok := <-req.chHttpResponse
 			if ok {
 				f(v, req)
 			} else {
