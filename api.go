@@ -29,6 +29,7 @@ func (req *Request) GetRequestOptions(strUrl string, opts ...requestOptionsInter
 		IsGetJson:             -1,
 		Header:                make(map[string]string),
 		RedirectCount:         30,
+		CacheFullResponse:     true,
 		Timeout:               30,
 		ReadWriteTimeout:      30,
 		TLSHandshakeTimeout:   10,
@@ -474,10 +475,13 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	contentType := httpRes.Header.Get("Content-Type")
 	isText := strings.HasPrefix(contentType, "text/") || strings.Contains(contentType, "application/json")
 
-	if res.resBytes, err = pedanticReadAll(rp.ReadByteSize, reader, req, ctx, isText); err != nil {
+	if res.resBytes, err = pedanticReadAll(rp, reader, req, ctx, isText); err != nil {
 		res.resBytes = []byte(err.Error())
 		res.err = err
 		return res
+	}
+	if !rp.CacheFullResponse {
+		res.resBytes = []byte("response not cached (large file mode)")
 	}
 
 	return res
@@ -500,15 +504,18 @@ func (w *channelWriter) Write(p []byte) (n int, err error) {
 }
 
 // pedanticReadAll 读取所有字节
-func pedanticReadAll(readByteSize int, r io.Reader, req *Request, ctx context.Context, isText bool) (b []byte, err error) {
-
-	buf := make([]byte, readByteSize)
+func pedanticReadAll(rp *RequestOptions, r io.Reader, req *Request, ctx context.Context, isText bool) (b []byte, err error) {
+	buf := make([]byte, rp.ReadByteSize)
 	var bItem []byte // bItem 仅用于文本模式下累积数据
+
+	if rp.CacheFullResponse {
+		b = make([]byte, 0)
+	}
 
 	// 提取公共发送函数，减少重复代码
 	sendData := func(data []byte) error {
 		if req.ChContentItem == nil {
-			return fmt.Errorf("channel is nil")
+			return nil
 		}
 		select {
 		case req.ChContentItem <- data:
@@ -546,7 +553,9 @@ func pedanticReadAll(readByteSize int, r io.Reader, req *Request, ctx context.Co
 		}
 		// 累积数据到结果
 		if n > 0 {
-			b = append(b, buf[:n]...)
+			if rp.CacheFullResponse {
+				b = append(b, buf[:n]...)
+			}
 			// 根据内容类型选择处理方式
 			if isText {
 				bItem = append(bItem, buf[:n]...)

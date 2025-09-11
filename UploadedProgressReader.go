@@ -28,7 +28,9 @@ func (pr *UploadedProgressReader) Read(p []byte) (n int, err error) {
 	}
 	// 1. 先读取原始数据（核心逻辑不变）
 	n, err = pr.Reader.Read(p)
-	atomic.AddInt64(&pr.Uploaded, int64(n))
+	if n > 0 {
+		atomic.AddInt64(&pr.Uploaded, int64(n))
+	}
 
 	// 2. 加锁判断信道是否已关闭（防止 Close 与 Read 并发执行）
 	pr.mu.Lock()
@@ -40,15 +42,17 @@ func (pr *UploadedProgressReader) Read(p []byte) (n int, err error) {
 		return n, err
 	}
 
-	// 4. 按原逻辑判断是否需要发送进度（非阻塞发送）
+	pr.mu.Lock()
 	if time.Since(pr.LastTime).Milliseconds() > 500 {
 		pr.LastTime = time.Now()
 		current := atomic.LoadInt64(&pr.Uploaded)
 		select {
-		case pr.chUploaded <- &current: // 发送进度
-		default: // 信道满/已关闭时容错（避免阻塞）
+		case pr.chUploaded <- &current:
+		default:
 		}
 	}
+	pr.mu.Unlock()
+
 	return n, err
 }
 
@@ -57,9 +61,10 @@ func (pr *UploadedProgressReader) Close() error {
 	defer pr.mu.Unlock()
 
 	if !pr.closed && pr.chUploaded != nil {
-		// 非阻塞发送 Total，避免信道已满或已关闭导致的问题
+		// 统一在这里发送最终进度，并关闭信道
+		current := atomic.LoadInt64(&pr.Uploaded)
 		select {
-		case pr.chUploaded <- &pr.Total:
+		case pr.chUploaded <- &current:
 		default:
 		}
 		close(pr.chUploaded)

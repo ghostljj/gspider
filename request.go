@@ -107,14 +107,15 @@ func Session() *Request {
 }
 
 type RequestOptions struct {
-	ReadByteSize  int               // 读取字节大小
-	RefererUrl    string            // 来源url
-	IsGetJson     int               // 是否接收 Json  -1不发 0否 1是
-	IsPostJson    int               // 是否提交 Json  -1不发 0否 1是
-	Header        map[string]string // 头参数
-	Cookie        string            // cookie     单独url
-	CookieAll     string            // cookieAll  根url+单独url
-	RedirectCount int               // 重定向次数
+	ReadByteSize      int               // 读取字节大小
+	RefererUrl        string            // 来源url
+	IsGetJson         int               // 是否接收 Json  -1不发 0否 1是
+	IsPostJson        int               // 是否提交 Json  -1不发 0否 1是
+	Header            map[string]string // 头参数
+	Cookie            string            // cookie     单独url
+	CookieAll         string            // cookieAll  根url+单独url
+	RedirectCount     int               // 重定向次数
+	CacheFullResponse bool              // 是否缓存完整响应字节（默认true，超大文件建议关闭）
 
 	Timeout               time.Duration // 秒 TCP连接超时时间
 	ReadWriteTimeout      time.Duration // 秒 整个请求的超时时间
@@ -185,6 +186,13 @@ func OptHeader(header map[string]string) requestOptionsInterface {
 func OptRedirectCount(redirectCount int) requestOptionsInterface {
 	return newFuncRequests(func(ro *RequestOptions) {
 		ro.RedirectCount = redirectCount
+	})
+}
+
+// OptCacheFullResponse 是否缓存完整响应字节（默认true，超大文件建议关闭）
+func OptCacheFullResponse(cacheFullResponse bool) requestOptionsInterface {
+	return newFuncRequests(func(ro *RequestOptions) {
+		ro.CacheFullResponse = cacheFullResponse
 	})
 }
 

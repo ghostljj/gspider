@@ -48,7 +48,7 @@ func main() {
 	req := gs.Session()
 	//ss.SetHttpProxy(fmt.Sprintf("http://%s:%d", "127.0.0.1", 10809))
 	//ss.SetSocks5Proxy("127.0.0.1:10808", "", "")
-	req.OnUploaded(func(uploaded *int64) {
+	req.OnUploaded(func(uploaded *int64, req *gs.Request) {
 		fmt.Println("已上传", *uploaded)
 	})
 
