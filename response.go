@@ -33,7 +33,7 @@ type Response struct {
 	req *Request
 }
 
-//NewHttpInfo  新建一个httpInfo
+// NewHttpInfo  新建一个httpInfo
 func newResponse(req *Request) *Response {
 	res := Response{}
 	res.Encode = "Auto"
@@ -64,82 +64,96 @@ func newResponse(req *Request) *Response {
 	return &res
 }
 
-//GetReqHeader 获取 请求 头信息
+// GetReqHeader 获取 请求 头信息
 func (res *Response) GetReqHeader() http.Header {
 	return res.reqHeader
 }
 
-//GetResHeader 获取 响应 头信息
+// GetResHeader 获取 响应 头信息
 func (res *Response) GetResHeader() http.Header {
 	return res.resHeader
 }
 
-//GetResCookies 获取 响应 Cookies
+// GetResCookies 获取 响应 Cookies
 func (res *Response) GetResCookies() []*http.Cookie {
 	return res.resCookies
 }
 
-//GetAllCookies 获取所有 Cookies 可以是 请求url \ 响应url
+// GetAllCookies 获取所有 Cookies 可以是 请求url \ 响应url
 func (res *Response) GetAllCookies(strUrl string) *map[string]string {
 	return res.req.GetCookiesJarMap(strUrl)
 }
 
-//GetReqUrl 获取 请求 Url
+// GetReqUrl 获取 请求 Url
 func (res *Response) GetReqUrl() string {
 	return res.reqUrl
 }
 
-//GetReqPostData 获取 请求 Post 信息
+// GetReqPostData 获取 请求 Post 信息
 func (res *Response) GetReqPostData() string {
 	return res.reqPostData
 }
 
-//GetResUrl 获取 响应 后的Url
+// GetResUrl 获取 响应 后的Url
 func (res *Response) GetResUrl() string {
 	return res.resUrl
 }
 
-//GetStatusCode 获取 响应 状态码
+// GetStatusCode 获取 响应 状态码
 func (res *Response) GetStatusCode() int {
 	return res.statusCode
 }
 
-//GetBytes 获取 响应 byte
+// GetBytes 获取 响应 byte
 func (res *Response) GetBytes() []byte {
 	return res.resBytes
 }
 
-//GetErr 返回错误
+// GetErr 返回错误
 func (res *Response) GetErr() error {
 	return res.err
 }
 
-//GetContent 获取 响应 内容
+// GetContent 获取 响应 内容
 func (res *Response) GetContent() string {
-	bodyByte := bytes.TrimPrefix(res.resBytes, []byte("\xef\xbb\xbf")) // Or []byte{239, 187, 191}
+	// 处理BOM
+	bodyByte := res.resBytes
+	if bytes.HasPrefix(bodyByte, []byte("\xef\xbb\xbf")) { // UTF-8 BOM
+		bodyByte = bytes.TrimPrefix(bodyByte, []byte("\xef\xbb\xbf"))
+	} else if bytes.HasPrefix(bodyByte, []byte("\xff\xfe")) { // UTF-16 LE BOM
+		bodyByte = bytes.TrimPrefix(bodyByte, []byte("\xff\xfe"))
+	} else if bytes.HasPrefix(bodyByte, []byte("\xfe\xff")) { // UTF-16 BE BOM
+		bodyByte = bytes.TrimPrefix(bodyByte, []byte("\xfe\xff"))
+	}
+
 	bodyStr := string(bodyByte)
 	contentType := strings.ToLower(res.resHeader.Get("Content-Type"))
-	if strings.Index(contentType, "image/") <= -1 {
-		//自动/手动 编码
-		var charset string
-		if strings.ToLower(res.Encode) == "auto" {
-			autoEncode, err := chardet.NewTextDetector().DetectBest(res.resBytes)
-			if err == nil {
-				charset = autoEncode.Charset
-			} else {
-				res.err = err
-			}
-		} else {
-			charset = res.Encode
-		}
-		//进行编码
-		if charset != "" {
-			encodeDec := mahonia.NewDecoder(charset)
-			if encodeDec != nil {
-				//在UTF-8字符转中，有可能会有一个BOM（字节顺序标记）这个字节顺序标记并不是必须的，有的 UTF-8 数据就是不带这个 BOM 的
-				bodyStr = encodeDec.ConvertString(bodyStr) //把文本转为 srcCode 例如 GB18030
-			}
-		}
+	// 图片类型直接返回原始字节的字符串表示
+	if strings.Index(contentType, "image/") != -1 {
+		return bodyStr
 	}
+	//自动/手动 编码
+	var charset string
+	if strings.ToLower(res.Encode) == "auto" {
+		autoEncode, err := chardet.NewTextDetector().DetectBest(res.resBytes)
+		if err == nil {
+			charset = autoEncode.Charset
+		} else {
+			res.err = err
+		}
+	} else {
+		charset = res.Encode
+	}
+
+	// 如果没有指定编码，默认使用 UTF-8
+	if charset == "" {
+		charset = "UTF-8"
+	}
+	encodeDec := mahonia.NewDecoder(charset)
+	if encodeDec != nil {
+		//在UTF-8字符转中，有可能会有一个BOM（字节顺序标记）这个字节顺序标记并不是必须的，有的 UTF-8 数据就是不带这个 BOM 的
+		bodyStr = encodeDec.ConvertString(bodyStr) //把文本转为 srcCode 例如 GB18030
+	}
+
 	return bodyStr
 }
