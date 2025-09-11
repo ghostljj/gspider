@@ -535,7 +535,7 @@ func pedanticReadAll(readByteSize int, r io.Reader, req *Request, ctx context.Co
 				dataCopy := make([]byte, n)
 				copy(dataCopy, buf[:n])
 				select {
-				case req.ChContentItem <- buf[:n]:
+				case req.ChContentItem <- dataCopy:
 				case <-ctx.Done():
 				}
 			}
