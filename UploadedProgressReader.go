@@ -60,17 +60,22 @@ func (pr *UploadedProgressReader) Close() error {
 	pr.mu.Lock()
 	defer pr.mu.Unlock()
 
-	if !pr.closed && pr.chUploaded != nil {
-		// 统一在这里发送最终进度，并关闭信道
+	if pr.closed {
+		return nil // 已关闭，直接返回
+	}
+
+	// 发送最终进度（非阻塞）
+	if pr.chUploaded != nil {
 		current := atomic.LoadInt64(&pr.Uploaded)
 		select {
 		case pr.chUploaded <- &current:
 		default:
 		}
-		close(pr.chUploaded)
-		pr.chUploaded = nil
-		pr.closed = true
 	}
+
+	// 标记自身关闭（不关闭外部信道）
+	pr.closed = true
+	pr.chUploaded = nil // 置空，避免后续误操作
 
 	// 关闭底层 Reader（兼容处理）
 	if closer, ok := pr.Reader.(io.Closer); ok {

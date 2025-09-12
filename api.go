@@ -14,7 +14,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	"golang.org/x/net/proxy"
@@ -59,6 +58,7 @@ func (req *Request) request(strMethod, strUrl string, strPostData *string, ro *R
 }
 
 func (req *Request) requestByte(strMethod, strUrl string, bytesPostData []byte, ro *RequestOptions) *Response {
+
 	if ro == nil {
 		ro = req.GetRequestOptions(strUrl)
 	}
@@ -186,6 +186,15 @@ func (req *Request) send(strMethod, strUrl string, strPostData *string, rp *Requ
 // SendRedirect 发送请求
 // strMethod GET POST PUT ...
 func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp *RequestOptions) *Response {
+
+	// 1. 第一个 defer：关闭信道（先入栈）
+	defer func() {
+		req.safeCloseHttpResponseChan()
+		req.safeCloseUploadedChan()
+		req.safeCloseContentItemChan()
+		req.wgDone.Wait()
+	}()
+
 	res := newResponse(req)
 	strMethod = strings.ToUpper(strMethod)
 	reqURI, err := url.Parse(strUrl)
@@ -424,19 +433,20 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	httpReq.Close = true
 
 	httpRes, err := httpClient.Do(httpReq)
-	defer func() {
-		if req.chHttpResponse != nil {
-			close(req.chHttpResponse) // 关闭信道，通知接收方退出
-			req.chHttpResponse = nil
-		}
-	}()
+	if httpRes != nil {
+		defer func() {
+			// 确保 Body 被完全读取并关闭
+			io.Copy(io.Discard, httpRes.Body)
+			httpRes.Body.Close()
+		}()
+	}
+
 	if err != nil {
 		//httpReq.Response.Close
 		res.resBytes = []byte(err.Error())
 		res.err = err
 		return res
 	}
-	defer httpRes.Body.Close()
 
 	if req.chHttpResponse != nil {
 		req.chHttpResponse <- httpRes
@@ -484,24 +494,7 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	if !rp.CacheFullResponse {
 		res.resBytes = []byte("response not cached (large file mode)")
 	}
-	wgDone.Wait()
 	return res
-}
-
-type channelWriter struct {
-	ch  chan<- []byte
-	ctx context.Context
-}
-
-func (w *channelWriter) Write(p []byte) (n int, err error) {
-	dataCopy := make([]byte, len(p))
-	copy(dataCopy, p)
-	select {
-	case w.ch <- dataCopy:
-		return len(p), nil
-	case <-w.ctx.Done():
-		return 0, w.ctx.Err()
-	}
 }
 
 // pedanticReadAll 读取所有字节
@@ -534,10 +527,7 @@ func pedanticReadAll(rp *RequestOptions, r io.Reader, req *Request, ctx context.
 				fmt.Printf("Warning: Failed to send remaining data (size: %d): %v\n", len(dataCopy), err)
 			}
 		}
-		if req.ChContentItem != nil {
-			close(req.ChContentItem)
-		}
-		req.ChContentItem = nil
+		req.safeCloseContentItemChan() // 替换原 ChContentItem 关闭
 	}()
 	for {
 		select {
@@ -605,48 +595,50 @@ func isIPAddress(host string) bool {
 	return net.ParseIP(host) != nil
 }
 
-var wgDone sync.WaitGroup
-
 // handleCallback 是一个泛型函数，用于处理任何 channel 和回调函数。
 // T 是 channel 中传递的数据类型。
 // req 是请求对象
 func handleCallback[T any](ch <-chan T, f func(T, *Request), req *Request) {
 	go func() {
+		req.wgDone.Add(1)
 		// 增加 recover 保护，防止回调函数 panic
 		defer func() {
 			if r := recover(); r != nil {
 				fmt.Printf("Callback panic: %v\n", r)
 			}
+			req.wgDone.Done() // 确保最终会执行 Done()
 		}()
-		func() {
-			wgDone.Add(1)
-			defer wgDone.Done()
-			for {
-				v, ok := <-ch
-				if ok {
-					f(v, req)
-				} else {
-					break
-				}
-			}
-		}()
+
+		// 步骤3：信道接收逻辑
+		for v := range ch { // 使用 range 更安全
+			f(v, req)
+		}
 	}()
 }
 
 // OnHttpResponse 响应头回调
 func (req *Request) OnHttpResponse(f func(httpRes *http.Response, req *Request)) {
+	if req.chHttpResponse != nil {
+		return
+	}
 	req.chHttpResponse = make(chan *http.Response, 1)
 	handleCallback(req.chHttpResponse, f, req)
 }
 
 // OnUploaded 上传回调
 func (req *Request) OnUploaded(f func(uploaded *int64, req *Request)) {
+	if req.ChUploaded != nil {
+		return
+	}
 	req.ChUploaded = make(chan *int64, 10)
 	handleCallback(req.ChUploaded, f, req)
 }
 
 // OnContent 实现内容回调
 func (req *Request) OnContent(f func(byteItem []byte, req *Request)) {
+	if req.ChContentItem != nil {
+		return
+	}
 	req.ChContentItem = make(chan []byte, 10)
 	handleCallback(req.ChContentItem, f, req)
 }
