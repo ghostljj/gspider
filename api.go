@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/net/proxy"
@@ -483,7 +484,7 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	if !rp.CacheFullResponse {
 		res.resBytes = []byte("response not cached (large file mode)")
 	}
-
+	wgDone.Wait()
 	return res
 }
 
@@ -511,7 +512,6 @@ func pedanticReadAll(rp *RequestOptions, r io.Reader, req *Request, ctx context.
 	if rp.CacheFullResponse {
 		b = make([]byte, 0)
 	}
-
 	// 提取公共发送函数，减少重复代码
 	sendData := func(data []byte) error {
 		if req.ChContentItem == nil {
@@ -524,7 +524,6 @@ func pedanticReadAll(rp *RequestOptions, r io.Reader, req *Request, ctx context.
 			return ctx.Err()
 		}
 	}
-
 	defer func() {
 		// 确保所有数据都被发送
 		if req.ChContentItem != nil && len(bItem) > 0 {
@@ -606,6 +605,8 @@ func isIPAddress(host string) bool {
 	return net.ParseIP(host) != nil
 }
 
+var wgDone sync.WaitGroup
+
 // handleCallback 是一个泛型函数，用于处理任何 channel 和回调函数。
 // T 是 channel 中传递的数据类型。
 // req 是请求对象
@@ -617,14 +618,18 @@ func handleCallback[T any](ch <-chan T, f func(T, *Request), req *Request) {
 				fmt.Printf("Callback panic: %v\n", r)
 			}
 		}()
-		for {
-			v, ok := <-ch
-			if ok {
-				f(v, req)
-			} else {
-				break
+		func() {
+			wgDone.Add(1)
+			defer wgDone.Done()
+			for {
+				v, ok := <-ch
+				if ok {
+					f(v, req)
+				} else {
+					break
+				}
 			}
-		}
+		}()
 	}()
 }
 
