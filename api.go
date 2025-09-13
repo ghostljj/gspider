@@ -21,34 +21,6 @@ import (
 
 //--------------------------------------------------------------------------------------------------------------
 
-func (req *Request) GetRequestOptions(strUrl string, opts ...requestOptionsInterface) (ro *RequestOptions) {
-
-	ro = &RequestOptions{
-		ReadByteSize:          1024 * 4,
-		IsPostJson:            -1,
-		IsGetJson:             -1,
-		Header:                make(map[string]string),
-		RedirectCount:         30,
-		CacheFullResponse:     true,
-		Timeout:               30,
-		ReadWriteTimeout:      30,
-		TLSHandshakeTimeout:   10,
-		ResponseHeaderTimeout: 10,
-		KeepAliveTimeout:      30,
-		TcpDelay:              0,
-	}
-	for _, opt := range opts {
-		opt.apply(ro) //这里是塞入实体，针对实体赋值
-	}
-	if ro.Cookie != "" {
-		req.SetCookies(strUrl, ro.Cookie)
-	}
-	if ro.CookieAll != "" {
-		req.SetCookiesAll(strUrl, ro.CookieAll)
-	}
-	return
-}
-
 func (req *Request) request(strMethod, strUrl string, strPostData *string, ro *RequestOptions) *Response {
 	var bytePostData []byte
 	if strPostData != nil {
@@ -214,7 +186,14 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 		res.reqPostData = string(bytesPostData)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	req.cancelMu.Lock()
+	ctx, cancel := context.WithCancel(req.cancelCtx)
+	req.cancelCtx = ctx
+	if req.cancel == nil {
+		req.cancel = cancel
+	}
+	req.cancelMu.Unlock()
+
 	progressReader := &UploadedProgressReader{
 		Reader:     bytes.NewReader(bytesPostData),
 		Total:      int64(len(bytesPostData)),
@@ -230,7 +209,6 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	}()
 
 	httpReq, err := http.NewRequestWithContext(ctx, strMethod, strUrl, progressReader)
-	req.cancel = cancel
 
 	if err != nil {
 		res.resBytes = []byte(err.Error())
@@ -609,9 +587,18 @@ func handleCallback[T any](ch <-chan T, f func(T, *Request), req *Request) {
 			req.wgDone.Done() // 确保最终会执行 Done()
 		}()
 
-		// 步骤3：信道接收逻辑
-		for v := range ch { // 使用 range 更安全
-			f(v, req)
+		for {
+			select {
+			case v, ok := <-ch:
+				if !ok {
+					// 信道正常关闭，退出循环
+					return
+				}
+				f(v, req) // 执行回调逻辑
+			case <-req.cancelCtx.Done():
+				// 上下文被取消（如请求超时、完成），直接退出
+				return
+			}
 		}
 	}()
 }

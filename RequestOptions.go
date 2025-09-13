@@ -1,6 +1,8 @@
 package gspider
 
-import "time"
+import (
+	"time"
+)
 
 type RequestOptions struct {
 	ReadByteSize      int               // 读取字节大小
@@ -20,6 +22,35 @@ type RequestOptions struct {
 	KeepAliveTimeout      time.Duration // 秒 保持连接超时
 
 	TcpDelay time.Duration // 毫秒 TCP 连接成功后，延迟多久
+}
+
+func (req *Request) GetRequestOptions(strUrl string, opts ...requestOptionsInterface) (ro *RequestOptions) {
+
+	ro = &RequestOptions{
+		ReadByteSize:      1024 * 4,
+		IsPostJson:        -1,
+		IsGetJson:         -1,
+		Header:            make(map[string]string),
+		RedirectCount:     30,
+		CacheFullResponse: true,
+
+		Timeout:               30,
+		ReadWriteTimeout:      30,
+		TLSHandshakeTimeout:   10,
+		ResponseHeaderTimeout: 10,
+		KeepAliveTimeout:      30,
+		TcpDelay:              0,
+	}
+	for _, opt := range opts {
+		opt.apply(ro) //这里是塞入实体，针对实体赋值
+	}
+	if ro.Cookie != "" {
+		req.SetCookies(strUrl, ro.Cookie)
+	}
+	if ro.CookieAll != "" {
+		req.SetCookiesAll(strUrl, ro.CookieAll)
+	}
+	return
 }
 
 //--------------------------------------------------------------------------------------------------------------

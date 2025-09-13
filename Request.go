@@ -25,7 +25,8 @@ import (
 type Request struct {
 	LocalIP   string // 本地 网络 IP
 	UserAgent string
-	cancel    context.CancelFunc // 中断请求/响应
+	cancel    context.CancelFunc
+	cancelCtx context.Context
 	cancelMu  sync.Mutex
 
 	HttpProxyInfo string // 设置Http代理 例：http://127.0.0.1:1081
@@ -64,7 +65,7 @@ func defaultRequest() *Request {
 		Verify:        false,
 		HttpProxyAuto: false,
 	}
-
+	req.cancelCtx = context.Background()
 	req.CookieJarReset()
 	req.defaultHeaderTemplate = make(map[string]string)
 	req.defaultHeaderTemplate["accept-encoding"] = "gzip, deflate, br"
@@ -76,15 +77,9 @@ func defaultRequest() *Request {
 }
 
 // Session
-//
 // 创建Request对象
 func Session() *Request {
 	return defaultRequest()
-	//dros := defaultRequestOptions()
-	//for _, opt := range opts {
-	//	opt.apply(&dros) //这里是塞入实体，针对实体赋值
-	//}
-	//return &dros
 }
 
 // 安全关闭 chHttpResponse

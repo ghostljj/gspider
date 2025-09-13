@@ -15,6 +15,7 @@ type UploadedProgressReader struct {
 	LastTime   time.Time
 	chUploaded chan *int64
 	closed     bool            // 标记信道是否已关闭
+	lastSent   int64           // 记录最后一次成功发送的进度值
 	mu         sync.Mutex      // 保证并发安全（防止多协程同时操作 closed 标志）
 	ctx        context.Context // 新增：监听取消信号
 }
@@ -46,9 +47,15 @@ func (pr *UploadedProgressReader) Read(p []byte) (n int, err error) {
 	if time.Since(pr.LastTime).Milliseconds() > 500 {
 		pr.LastTime = time.Now()
 		current := atomic.LoadInt64(&pr.Uploaded)
-		select {
-		case pr.chUploaded <- &current:
-		default:
+		lastSent := atomic.LoadInt64(&pr.lastSent)
+
+		// 仅当当前进度与最后发送值不同时才发送
+		if current != lastSent {
+			select {
+			case pr.chUploaded <- &current:
+				atomic.StoreInt64(&pr.lastSent, current) // 更新最后发送记录
+			default:
+			}
 		}
 	}
 	pr.mu.Unlock()
@@ -64,12 +71,18 @@ func (pr *UploadedProgressReader) Close() error {
 		return nil // 已关闭，直接返回
 	}
 
-	// 发送最终进度（非阻塞）
+	// 发送最终进度（带去重判断）
 	if pr.chUploaded != nil {
 		current := atomic.LoadInt64(&pr.Uploaded)
-		select {
-		case pr.chUploaded <- &current:
-		default:
+		lastSent := atomic.LoadInt64(&pr.lastSent)
+
+		// 仅当当前进度与最后发送值不同时才发送
+		if current != lastSent {
+			select {
+			case pr.chUploaded <- &current:
+				atomic.StoreInt64(&pr.lastSent, current) // 更新最后发送记录
+			default:
+			}
 		}
 	}
 

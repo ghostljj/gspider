@@ -14,9 +14,6 @@ func main() {
 	req.OnUploaded(func(uploaded *int64, req *gs.Request) {
 		fmt.Println("已上传", *uploaded)
 	})
-	req.OnContent(func(content []byte, req *gs.Request) {
-		fmt.Println("内容", string(content))
-	})
 
 	res := req.PostJson(url,
 		`{"a":1,"b":2}`,

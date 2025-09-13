@@ -36,6 +36,7 @@ type Response struct {
 // NewHttpInfo  新建一个httpInfo
 func newResponse(req *Request) *Response {
 	res := Response{}
+
 	res.Encode = "Auto"
 	//清空 请求 Url
 	res.reqUrl = ""
