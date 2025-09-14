@@ -188,10 +188,7 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 
 	req.cancelMu.Lock()
 	ctx, cancel := context.WithCancel(req.cancelCtx)
-	req.cancelCtx = ctx
-	if req.cancel == nil {
-		req.cancel = cancel
-	}
+	req.cancel = cancel
 	req.cancelMu.Unlock()
 
 	progressReader := &UploadedProgressReader{
@@ -488,11 +485,17 @@ func pedanticReadAll(rp *RequestOptions, r io.Reader, req *Request, ctx context.
 		if req.ChContentItem == nil {
 			return nil
 		}
-		select {
-		case req.ChContentItem <- data:
+		if ctx != nil {
+			select {
+			case req.ChContentItem <- data:
+				return nil
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		} else {
+			// 无上下文时，阻塞等待发送完成
+			req.ChContentItem <- data
 			return nil
-		case <-ctx.Done():
-			return ctx.Err()
 		}
 	}
 	defer func() {
@@ -508,11 +511,13 @@ func pedanticReadAll(rp *RequestOptions, r io.Reader, req *Request, ctx context.
 		req.safeCloseContentItemChan() // 替换原 ChContentItem 关闭
 	}()
 	for {
-		select {
-		case <-ctx.Done():
-			// 处理中断信号，立即返回已读取的数据和错误
-			return b, ctx.Err()
-		default:
+		if ctx != nil {
+			select {
+			case <-ctx.Done():
+				// 处理中断信号，立即返回已读取的数据和错误
+				return b, ctx.Err()
+			default:
+			}
 		}
 		n, err := r.Read(buf)
 		if n == 0 && err == nil {
@@ -588,16 +593,24 @@ func handleCallback[T any](ch <-chan T, f func(T, *Request), req *Request) {
 		}()
 
 		for {
-			select {
-			case v, ok := <-ch:
-				if !ok {
-					// 信道正常关闭，退出循环
+			if req.cancelCtx != nil {
+				select {
+				case v, ok := <-ch:
+					if !ok {
+						// 信道正常关闭，退出循环
+						return
+					}
+					f(v, req) // 执行回调逻辑
+				case <-req.cancelCtx.Done():
+					// 上下文被取消（如请求超时、完成），直接退出
 					return
 				}
-				f(v, req) // 执行回调逻辑
-			case <-req.cancelCtx.Done():
-				// 上下文被取消（如请求超时、完成），直接退出
-				return
+			} else {
+				v, ok := <-ch
+				if !ok {
+					return
+				}
+				f(v, req)
 			}
 		}
 	}()

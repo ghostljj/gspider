@@ -82,6 +82,12 @@ func Session() *Request {
 	return defaultRequest()
 }
 
+func SessionWithContext(cancelCtx context.Context) *Request {
+	gs := defaultRequest()
+	gs.cancelCtx = cancelCtx
+	return gs
+}
+
 // 安全关闭 chHttpResponse
 func (req *Request) safeCloseHttpResponseChan() {
 	if req.chHttpResponse != nil {

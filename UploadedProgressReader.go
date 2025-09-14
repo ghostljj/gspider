@@ -22,10 +22,12 @@ type UploadedProgressReader struct {
 
 func (pr *UploadedProgressReader) Read(p []byte) (n int, err error) {
 	// 优先检查 ctx 是否被取消，若取消则立即返回错误
-	select {
-	case <-pr.ctx.Done():
-		return 0, pr.ctx.Err() // 返回 context canceled 错误
-	default:
+	if pr.ctx != nil {
+		select {
+		case <-pr.ctx.Done():
+			return 0, pr.ctx.Err() // 返回 context canceled 错误
+		default:
+		}
 	}
 	// 1. 先读取原始数据（核心逻辑不变）
 	n, err = pr.Reader.Read(p)
