@@ -185,11 +185,14 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	if len(bytesPostData) <= 12000 {
 		res.reqPostData = string(bytesPostData)
 	}
-
-	req.cancelMu.Lock()
-	ctx, cancel := context.WithCancel(req.cancelCtx)
-	req.cancel = cancel
-	req.cancelMu.Unlock()
+	var ctx context.Context
+	if req.cancelCtx != nil {
+		var cancel context.CancelFunc
+		req.cancelMu.Lock()
+		ctx, cancel = context.WithCancel(req.cancelCtx)
+		req.cancel = cancel
+		req.cancelMu.Unlock()
+	}
 
 	progressReader := &UploadedProgressReader{
 		Reader:     bytes.NewReader(bytesPostData),
@@ -205,7 +208,12 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 		}
 	}()
 
-	httpReq, err := http.NewRequestWithContext(ctx, strMethod, strUrl, progressReader)
+	var httpReq *http.Request
+	if ctx != nil {
+		httpReq, err = http.NewRequestWithContext(ctx, strMethod, strUrl, progressReader)
+	} else {
+		httpReq, err = http.NewRequest(strMethod, strUrl, progressReader)
+	}
 
 	if err != nil {
 		res.resBytes = []byte(err.Error())

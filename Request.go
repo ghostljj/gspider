@@ -65,7 +65,7 @@ func defaultRequest() *Request {
 		Verify:        false,
 		HttpProxyAuto: false,
 	}
-	req.cancelCtx = context.Background()
+	//req.cancelCtx = context.Background()
 	req.CookieJarReset()
 	req.defaultHeaderTemplate = make(map[string]string)
 	req.defaultHeaderTemplate["accept-encoding"] = "gzip, deflate, br"
