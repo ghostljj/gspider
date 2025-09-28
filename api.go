@@ -194,13 +194,11 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 		req.cancelMu.Unlock()
 	}
 
-	progressReader := &UploadedProgressReader{
-		Reader:     bytes.NewReader(bytesPostData),
-		Total:      int64(len(bytesPostData)),
-		chUploaded: req.ChUploaded,
-		LastTime:   time.Now(),
-		ctx:        ctx,
-	}
+	progressReader := NewUploadedProgressReader(
+		bytesPostData,
+		ctx,
+		req.ChUploaded,
+	)
 	defer func() {
 		err := progressReader.Close()
 		if err != nil {
@@ -214,11 +212,26 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	} else {
 		httpReq, err = http.NewRequest(strMethod, strUrl, progressReader)
 	}
-
 	if err != nil {
 		res.resBytes = []byte(err.Error())
 		res.err = err
 		return res
+	}
+	// 为了让客户端在重定向或重试时能够重新发送请求体，
+	// 你必须提供 GetBody 函数。
+	if len(bytesPostData) > 0 {
+		httpReq.GetBody = func() (io.ReadCloser, error) {
+			// 当 http.Client 需要重新发送请求体时，就会调用这个函数。
+			// 它必须返回一个全新的、指向数据开头的 reader。
+			newReader := NewUploadedProgressReader(
+				bytesPostData,
+				ctx, // 可以复用原始的 context
+				req.ChUploaded,
+			)
+			// 你的 UploadedProgressReader 已经实现了 Close() 方法,
+			// 因此它满足 io.ReadCloser 接口。
+			return newReader, nil
+		}
 	}
 
 	ts := &http.Transport{}
@@ -414,6 +427,11 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 
 	httpClient.Jar = req.cookieJar
 	httpReq.Close = true
+
+	// 如果存在请求体，也应该设置 httpReq.ContentLength
+	if len(bytesPostData) > 0 {
+		httpReq.ContentLength = int64(len(bytesPostData))
+	}
 
 	httpRes, err := httpClient.Do(httpReq)
 	if httpRes != nil {
