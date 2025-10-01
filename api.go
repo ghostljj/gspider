@@ -8,13 +8,14 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
-	"github.com/andybalholm/brotli"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/andybalholm/brotli"
 
 	"golang.org/x/net/proxy"
 )
