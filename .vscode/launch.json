@@ -1,23 +1,17 @@
 {
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "Launch test1.go",
-            "type": "go",
-            "request": "launch",
-            "mode": "auto",
-            "program": "d:/GoWork/gspider/_examples/test1.go",
-            "env": {},
-            "args": []
-        },
-        {
-            "name": "Launch test2.go",
-            "type": "go",
-            "request": "launch",
-            "mode": "auto",
-            "program": "d:/GoWork/gspider/_examples/test2.go",
-            "env": {},
-            "args": []
-        }
-    ]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug _examples/test1.go (dlv-dap)",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/_examples/test1.go",
+      "debugAdapter": "dlv-dap",
+      "console": "integratedTerminal",
+      "buildFlags": ["-gcflags", "all=-N -l"],
+      "showLog": false,
+      "logOutput": "rpc"
+    }
+  ]
 }

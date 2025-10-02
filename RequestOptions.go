@@ -1,9 +1,5 @@
 package gspider
 
-import (
-	"time"
-)
-
 type RequestOptions struct {
 	ReadByteSize      int               // 读取字节大小
 	RefererUrl        string            // 来源url
@@ -15,13 +11,13 @@ type RequestOptions struct {
 	RedirectCount     int               // 重定向次数
 	CacheFullResponse bool              // 是否缓存完整响应字节（默认true，超大文件建议关闭）
 
-	Timeout               time.Duration // 秒 TCP连接超时时间
-	ReadWriteTimeout      time.Duration // 秒 整个请求的超时时间
-	TLSHandshakeTimeout   time.Duration // 秒 限制执行TLS握手所花费的时间
-	ResponseHeaderTimeout time.Duration // 秒 响应头超时时间
-	KeepAliveTimeout      time.Duration // 秒 保持连接超时
-
-	TcpDelay time.Duration // 毫秒 TCP 连接成功后，延迟多久
+	Timeout               int64  // TCP连接超时时间（单位：秒）
+	ReadWriteTimeout      int64  // 整个请求的超时时间（单位：秒）
+	TLSHandshakeTimeout   int64  // 限制执行TLS握手所花费的时间（单位：秒）
+	ResponseHeaderTimeout int64  // 响应头超时时间（单位：秒）
+	KeepAliveTimeout      int64  // 保持连接超时（单位：秒）
+	TcpDelay              int64  // TCP 连接成功后延迟时间（单位：秒）
+	CancelGroup           string // 取消分组标识，用于更灵活地按分组取消正在进行的请求
 }
 
 func (req *Request) GetRequestOptions(strUrl string, opts ...requestOptionsInterface) (ro *RequestOptions) {
@@ -137,44 +133,51 @@ func OptCookieAll(cookieAll string) requestOptionsInterface {
 	})
 }
 
-// OptTimeout 设置 秒 TCP连接超时时间
-func OptTimeout(timeout time.Duration) requestOptionsInterface {
+// OptTimeout 设置 TCP连接超时时间（单位：秒）
+func OptTimeout(timeout int64) requestOptionsInterface {
 	return newFuncRequests(func(ro *RequestOptions) {
 		ro.Timeout = timeout
 	})
 }
 
-// OptTcpDelay 毫秒  TCP 连接成功后，延迟多久
-func OptTcpDelay(tcpDelay time.Duration) requestOptionsInterface {
+// OptTcpDelay 设置 TCP 连接成功后，延迟多久（单位：秒）
+func OptTcpDelay(tcpDelay int64) requestOptionsInterface {
 	return newFuncRequests(func(ro *RequestOptions) {
 		ro.TcpDelay = tcpDelay
 	})
 }
 
-// OptReadWriteTimeout 设置 秒 整个请求的超时时间
-func OptReadWriteTimeout(readWriteTimeout time.Duration) requestOptionsInterface {
+// OptReadWriteTimeout 设置 整个请求的超时时间（单位：秒）
+func OptReadWriteTimeout(readWriteTimeout int64) requestOptionsInterface {
 	return newFuncRequests(func(ro *RequestOptions) {
 		ro.ReadWriteTimeout = readWriteTimeout
 	})
 }
 
-// OptTLSHandshakeTimeout 设置 秒 限制执行TLS握手所花费的时间
-func OptTLSHandshakeTimeout(tlsHandshakeTimeout time.Duration) requestOptionsInterface {
+// OptTLSHandshakeTimeout 设置 限制执行TLS握手所花费的时间（单位：秒）
+func OptTLSHandshakeTimeout(tlsHandshakeTimeout int64) requestOptionsInterface {
 	return newFuncRequests(func(ro *RequestOptions) {
 		ro.TLSHandshakeTimeout = tlsHandshakeTimeout
 	})
 }
 
-// OptResponseHeaderTimeout 设置 秒 响应头超时时间
-func OptResponseHeaderTimeout(responseHeaderTimeout time.Duration) requestOptionsInterface {
+// OptResponseHeaderTimeout 设置 响应头超时时间（单位：秒）
+func OptResponseHeaderTimeout(responseHeaderTimeout int64) requestOptionsInterface {
 	return newFuncRequests(func(ro *RequestOptions) {
 		ro.ResponseHeaderTimeout = responseHeaderTimeout
 	})
 }
 
-// OptKeepAliveTimeout 设置 秒 保持连接，超时
-func OptKeepAliveTimeout(keepAliveTimeout time.Duration) requestOptionsInterface {
+// OptKeepAliveTimeout 设置 保持连接超时（单位：秒）
+func OptKeepAliveTimeout(keepAliveTimeout int64) requestOptionsInterface {
 	return newFuncRequests(func(ro *RequestOptions) {
 		ro.KeepAliveTimeout = keepAliveTimeout
+	})
+}
+
+// OptCancelGroup 设置取消分组标识
+func OptCancelGroup(group string) requestOptionsInterface {
+	return newFuncRequests(func(ro *RequestOptions) {
+		ro.CancelGroup = group
 	})
 }

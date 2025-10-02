@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+
 	gs "github.com/ghostljj/gspider"
 )
 
@@ -25,6 +26,7 @@ func main() {
 	if res.GetErr() != nil {
 		fmt.Println("Error=" + res.GetErr().Error())
 	} else {
+
 		fmt.Println()
 		fmt.Println()
 		fmt.Println()

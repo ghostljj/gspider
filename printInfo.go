@@ -105,5 +105,4 @@ func (res *Response) PrintCookies(strUrl string) {
 		fmt.Print(" : ")
 		fmt.Println(v)
 	}
-	return
 }

@@ -2,10 +2,11 @@ package gspider
 
 import (
 	"bytes"
-	"github.com/axgle/mahonia"
-	"github.com/saintfish/chardet"
 	"net/http"
 	"strings"
+
+	"github.com/axgle/mahonia"
+	"github.com/saintfish/chardet"
 )
 
 // HttpInfo  返回信息结构
@@ -130,7 +131,7 @@ func (res *Response) GetContent() string {
 	bodyStr := string(bodyByte)
 	contentType := strings.ToLower(res.resHeader.Get("Content-Type"))
 	// 图片类型直接返回原始字节的字符串表示
-	if strings.Index(contentType, "image/") != -1 {
+	if strings.Contains(contentType, "image/") {
 		return bodyStr
 	}
 	//自动/手动 编码

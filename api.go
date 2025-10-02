@@ -87,11 +87,12 @@ func (req *Request) Post(strUrl, strPostData string, opts ...requestOptionsInter
 // Post 方法
 func (req *Request) PostBig(strUrl string, bytesPostData []byte, opts ...requestOptionsInterface) *Response {
 	ro := req.GetRequestOptions(strUrl, opts...)
-	timeOut := time.Duration(60 * 60 * 5)
+	// 使用秒为单位的阈值（int64）
+	timeOut := int64((5 * time.Hour) / time.Second) // 5小时 => 18000秒
 	if ro.Timeout <= timeOut {
 		ro.Timeout = timeOut
 	}
-	readWriteTimeout := time.Duration(60)
+	readWriteTimeout := int64(60) // 60秒
 	if ro.ReadWriteTimeout <= readWriteTimeout {
 		ro.ReadWriteTimeout = readWriteTimeout
 	}
@@ -166,6 +167,30 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 		req.safeCloseUploadedChan()
 		req.safeCloseContentItemChan()
 		req.wgDone.Wait()
+		// 清理可取消上下文，避免后续复用导致立即取消
+		req.cancelMu.Lock()
+		req.cancel = nil
+		req.cancelCause = nil
+		// 将请求期上下文复位为父级上下文，确保后续派生以父级为根
+		req.cancelCtx = req.baseCtx
+		// 分组计数-自动清理：本次请求结束，减少对应分组计数，并在为0时清理分组资源
+		if rp != nil && len(rp.CancelGroup) > 0 && req.groupCounts != nil {
+			g := rp.CancelGroup
+			if cnt, ok := req.groupCounts[g]; ok {
+				if cnt <= 1 {
+					delete(req.groupCounts, g)
+					if req.groupCancelCauses != nil {
+						delete(req.groupCancelCauses, g)
+					}
+					if req.groupCtxs != nil {
+						delete(req.groupCtxs, g)
+					}
+				} else {
+					req.groupCounts[g] = cnt - 1
+				}
+			}
+		}
+		req.cancelMu.Unlock()
 	}()
 
 	res := newResponse(req)
@@ -179,25 +204,58 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	res.reqUrl = reqURI.String()
 
 	httpClient := &http.Client{
-		Timeout: rp.ReadWriteTimeout * time.Second,
+		Timeout: time.Duration(rp.ReadWriteTimeout) * time.Second,
 	}
 
 	res.reqPostData = ""
 	if len(bytesPostData) <= 12000 {
 		res.reqPostData = string(bytesPostData)
 	}
+	// 统一：始终派生可取消的 ctx
 	var ctx context.Context
-	if req.cancelCtx != nil {
-		var cancel context.CancelFunc
+	var reqCtx context.Context
+	{
 		req.cancelMu.Lock()
-		ctx, cancel = context.WithCancel(req.cancelCtx)
-		req.cancel = cancel
+		// 选择父级上下文：优先使用分组上下文，否则使用 baseCtx
+		parent := req.baseCtx
+		if parent == nil {
+			parent = context.Background()
+		}
+		if rp.CancelGroup != "" {
+			// 初始化分组容器
+			if req.groupCtxs == nil {
+				req.groupCtxs = make(map[string]context.Context)
+			}
+			if req.groupCancelCauses == nil {
+				req.groupCancelCauses = make(map[string]context.CancelCauseFunc)
+			}
+			if req.groupCounts == nil {
+				req.groupCounts = make(map[string]int)
+			}
+			if gctx, ok := req.groupCtxs[rp.CancelGroup]; ok && gctx != nil {
+				parent = gctx
+				// 已存在分组：计数+1
+				req.groupCounts[rp.CancelGroup] = req.groupCounts[rp.CancelGroup] + 1
+			} else {
+				gctx, gcancel := context.WithCancelCause(parent)
+				req.groupCtxs[rp.CancelGroup] = gctx
+				req.groupCancelCauses[rp.CancelGroup] = gcancel
+				// 新建分组：计数=1
+				req.groupCounts[rp.CancelGroup] = 1
+				parent = gctx
+			}
+		}
+		// 为本次请求派生子上下文，便于仅取消该请求
+		ctx, cancelCause := context.WithCancelCause(parent)
+		req.cancelCause = cancelCause
+		// 使用局部请求期上下文，避免并发复用时字段被覆盖导致语义漂移
+		reqCtx = ctx
 		req.cancelMu.Unlock()
 	}
 
 	progressReader := NewUploadedProgressReader(
 		bytesPostData,
-		ctx,
+		reqCtx,
 		req.ChUploaded,
 	)
 	defer func() {
@@ -208,10 +266,8 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	}()
 
 	var httpReq *http.Request
-	if ctx != nil {
-		httpReq, err = http.NewRequestWithContext(ctx, strMethod, strUrl, progressReader)
-	} else {
-		httpReq, err = http.NewRequest(strMethod, strUrl, progressReader)
+	{
+		httpReq, err = http.NewRequestWithContext(reqCtx, strMethod, strUrl, progressReader)
 	}
 	if err != nil {
 		res.resBytes = []byte(err.Error())
@@ -222,23 +278,19 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	// 你必须提供 GetBody 函数。
 	if len(bytesPostData) > 0 {
 		httpReq.GetBody = func() (io.ReadCloser, error) {
-			// 当 http.Client 需要重新发送请求体时，就会调用这个函数。
-			// 它必须返回一个全新的、指向数据开头的 reader。
 			newReader := NewUploadedProgressReader(
 				bytesPostData,
-				ctx, // 可以复用原始的 context
+				reqCtx,
 				req.ChUploaded,
 			)
-			// 你的 UploadedProgressReader 已经实现了 Close() 方法,
-			// 因此它满足 io.ReadCloser 接口。
 			return newReader, nil
 		}
 	}
 
 	ts := &http.Transport{}
-	ts.IdleConnTimeout = time.Second * 90                             // 空闲连接的最长保持时间。超过此时间后，连接会被自动关闭。默认90
-	ts.TLSHandshakeTimeout = rp.TLSHandshakeTimeout * time.Second     // 限制执行TLS握手所花费的时间
-	ts.ResponseHeaderTimeout = rp.ResponseHeaderTimeout * time.Second // 响应头超时时间
+	ts.IdleConnTimeout = 90 * time.Second                                            // 空闲连接的最长保持时间。超过此时间后，连接会被自动关闭。默认90
+	ts.TLSHandshakeTimeout = time.Duration(rp.TLSHandshakeTimeout) * time.Second     // 限制执行TLS握手所花费的时间
+	ts.ResponseHeaderTimeout = time.Duration(rp.ResponseHeaderTimeout) * time.Second // 响应头超时时间
 	// ts.ExpectContinueTimeout = 1 * time.Second  //限制client在发送包含 Expect: 100-continue 的header到收到继续发送body的response之间的时间等待 POST才可能需要
 
 	// 新增：禁用 HTTP/2，强制使用 HTTP/1.1
@@ -246,8 +298,8 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	//超时设置  代理设置
 	{
 		netDialer := &net.Dialer{
-			Timeout:   rp.Timeout * time.Second,          // TCP 连接超时
-			KeepAlive: rp.KeepAliveTimeout * time.Second, // 连接保活时间
+			Timeout:   time.Duration(rp.Timeout) * time.Second,          // TCP 连接超时（秒）
+			KeepAlive: time.Duration(rp.KeepAliveTimeout) * time.Second, // 连接保活时间（秒）
 		}
 
 		if len(req.LocalIP) > 0 { //设置本地网络ip
@@ -317,6 +369,7 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 				res.resBytes = []byte(err.Error())
 				return res
 			}
+
 			ts.Proxy = http.ProxyURL(proxyUrl)
 		}
 		ts.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
@@ -327,7 +380,7 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 			}
 
 			if rp.TcpDelay > 0 {
-				time.Sleep(rp.TcpDelay * time.Millisecond)
+				time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
 			}
 			return conn, nil
 		}
@@ -338,7 +391,8 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 			}
 
 			// 创建基于 baseDialContext 的 SOCKS5 代理
-			netDialerNew, err := proxy.SOCKS5("tcp", req.Socks5Address,
+			var netDialerNew proxy.Dialer
+			netDialerNew, err = proxy.SOCKS5("tcp", req.Socks5Address,
 				Socks5Auth,
 				netDialer,
 			)
@@ -358,7 +412,7 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 						return nil, err
 					}
 					if rp.TcpDelay > 0 {
-						time.Sleep(rp.TcpDelay * time.Millisecond)
+						time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
 					}
 					return conn, nil
 				}
@@ -370,7 +424,7 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 						return nil, err
 					}
 					if rp.TcpDelay > 0 {
-						time.Sleep(rp.TcpDelay * time.Millisecond)
+						time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
 					}
 					return conn, nil
 				}
@@ -619,8 +673,11 @@ func handleCallback[T any](ch <-chan T, f func(T, *Request), req *Request) {
 			req.wgDone.Done() // 确保最终会执行 Done()
 		}()
 
+		// 捕获当前上下文快照，避免并发期间字段被后续请求覆盖
+		localCtx := req.cancelCtx
+
 		for {
-			if req.cancelCtx != nil {
+			if localCtx != nil {
 				select {
 				case v, ok := <-ch:
 					if !ok {
@@ -628,7 +685,7 @@ func handleCallback[T any](ch <-chan T, f func(T, *Request), req *Request) {
 						return
 					}
 					f(v, req) // 执行回调逻辑
-				case <-req.cancelCtx.Done():
+				case <-localCtx.Done():
 					// 上下文被取消（如请求超时、完成），直接退出
 					return
 				}
