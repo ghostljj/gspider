@@ -1,0 +1,10 @@
+{
+  "go.useLanguageServer": true,
+  "go.buildFlags": ["-gcflags", "all=-N -l"],
+  "gopls": {
+    "analyses": {
+      "unusedparams": true
+    },
+    "staticcheck": true
+  }
+}
