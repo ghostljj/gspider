@@ -265,7 +265,12 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
     var stopWriteMon chan struct{}
     if rp.WriteIdleTimeout > 0 && len(bytesPostData) > 0 {
         stopWriteMon = make(chan struct{})
-        go func() {
+        // 与读取侧保持一致：当上下文为 nil 时避免对 Done() 的访问
+        var writeDoneCh <-chan struct{}
+        if reqCtx != nil {
+            writeDoneCh = reqCtx.Done()
+        }
+        go func(done <-chan struct{}) {
             idle := time.Duration(rp.WriteIdleTimeout) * time.Second
             ticker := time.NewTicker(500 * time.Millisecond)
             defer ticker.Stop()
@@ -275,7 +280,7 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
                 select {
                 case <-stopWriteMon:
                     return
-                case <-reqCtx.Done():
+                case <-done:
                     return
                 case <-ticker.C:
                     cur := atomic.LoadInt64(&progressReader.Uploaded)
@@ -292,7 +297,7 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
                     }
                 }
             }
-        }()
+        }(writeDoneCh)
     }
     defer func() {
         err := progressReader.Close()
@@ -615,7 +620,12 @@ func pedanticReadAll(rp *RequestOptions, r io.Reader, req *Request, ctx context.
     if rp.ReadIdleTimeout > 0 {
         idleDuration = time.Duration(rp.ReadIdleTimeout) * time.Second
         idleTimer = time.NewTimer(idleDuration)
-        go func(localCtx context.Context) {
+        // 安全处理：当 ctx 为 nil 时，避免对 nil 上下文调用 Done()
+        var doneCh <-chan struct{}
+        if ctx != nil {
+            doneCh = ctx.Done()
+        }
+        go func(done <-chan struct{}) {
             for {
                 select {
                 case <-idleTimer.C:
@@ -624,11 +634,12 @@ func pedanticReadAll(rp *RequestOptions, r io.Reader, req *Request, ctx context.
                         req.cancelCause(fmt.Errorf("read idle timeout: no data for %s", idleDuration))
                     }
                     return
-                case <-localCtx.Done():
+                case <-done:
+                    // 当没有上下文（done=nil）时，此分支永远不会触发
                     return
                 }
             }
-        }(ctx)
+        }(doneCh)
     }
     // 提取公共发送函数，减少重复代码
     sendData := func(data []byte) error {
