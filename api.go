@@ -1,20 +1,20 @@
 package gspider
 
 import (
-    "bytes"
-    "compress/flate"
-    "compress/gzip"
-    "context"
-    "crypto/tls"
-    "encoding/base64"
-    "fmt"
-    "io"
-    "net"
-    "net/http"
-    "net/url"
-    "strings"
-    "time"
-    "sync/atomic"
+	"bytes"
+	"compress/flate"
+	"compress/gzip"
+	"context"
+	"crypto/tls"
+	"encoding/base64"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"net/url"
+	"strings"
+	"sync/atomic"
+	"time"
 
 	"github.com/andybalholm/brotli"
 
@@ -204,11 +204,11 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	}
 	res.reqUrl = reqURI.String()
 
-    // 允许整体超时为可选：当 ReadWriteTimeout<=0 时，不设置客户端超时（无限）
-    httpClient := &http.Client{}
-    if rp.ReadWriteTimeout > 0 {
-        httpClient.Timeout = time.Duration(rp.ReadWriteTimeout) * time.Second
-    }
+	// 允许整体超时为可选：当 ReadWriteTimeout<=0 时，不设置客户端超时（无限）
+	httpClient := &http.Client{}
+	if rp.ReadWriteTimeout > 0 {
+		httpClient.Timeout = time.Duration(rp.ReadWriteTimeout) * time.Second
+	}
 
 	res.reqPostData = ""
 	if len(bytesPostData) <= 12000 {
@@ -256,58 +256,58 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 		req.cancelMu.Unlock()
 	}
 
-    progressReader := NewUploadedProgressReader(
-        bytesPostData,
-        reqCtx,
-        req.ChUploaded,
-    )
-    // 写空闲超时监控：当上传在设定时长内没有任何进展，则取消请求
-    var stopWriteMon chan struct{}
-    if rp.WriteIdleTimeout > 0 && len(bytesPostData) > 0 {
-        stopWriteMon = make(chan struct{})
-        // 与读取侧保持一致：当上下文为 nil 时避免对 Done() 的访问
-        var writeDoneCh <-chan struct{}
-        if reqCtx != nil {
-            writeDoneCh = reqCtx.Done()
-        }
-        go func(done <-chan struct{}) {
-            idle := time.Duration(rp.WriteIdleTimeout) * time.Second
-            ticker := time.NewTicker(500 * time.Millisecond)
-            defer ticker.Stop()
-            lastUploaded := atomic.LoadInt64(&progressReader.Uploaded)
-            lastChange := time.Now()
-            for {
-                select {
-                case <-stopWriteMon:
-                    return
-                case <-done:
-                    return
-                case <-ticker.C:
-                    cur := atomic.LoadInt64(&progressReader.Uploaded)
-                    if cur > lastUploaded {
-                        lastUploaded = cur
-                        lastChange = time.Now()
-                        continue
-                    }
-                    if time.Since(lastChange) >= idle {
-                        if req.cancelCause != nil {
-                            req.cancelCause(fmt.Errorf("write idle timeout: %ds without progress", rp.WriteIdleTimeout))
-                        }
-                        return
-                    }
-                }
-            }
-        }(writeDoneCh)
-    }
-    defer func() {
-        err := progressReader.Close()
-        if err != nil {
-            res.err = err
-        }
-        if stopWriteMon != nil {
-            close(stopWriteMon)
-        }
-    }()
+	progressReader := NewUploadedProgressReader(
+		bytesPostData,
+		reqCtx,
+		req.ChUploaded,
+	)
+	// 写空闲超时监控：当上传在设定时长内没有任何进展，则取消请求
+	var stopWriteMon chan struct{}
+	if rp.WriteIdleTimeout > 0 && len(bytesPostData) > 0 {
+		stopWriteMon = make(chan struct{})
+		// 与读取侧保持一致：当上下文为 nil 时避免对 Done() 的访问
+		var writeDoneCh <-chan struct{}
+		if reqCtx != nil {
+			writeDoneCh = reqCtx.Done()
+		}
+		go func(done <-chan struct{}) {
+			idle := time.Duration(rp.WriteIdleTimeout) * time.Second
+			ticker := time.NewTicker(500 * time.Millisecond)
+			defer ticker.Stop()
+			lastUploaded := atomic.LoadInt64(&progressReader.Uploaded)
+			lastChange := time.Now()
+			for {
+				select {
+				case <-stopWriteMon:
+					return
+				case <-done:
+					return
+				case <-ticker.C:
+					cur := atomic.LoadInt64(&progressReader.Uploaded)
+					if cur > lastUploaded {
+						lastUploaded = cur
+						lastChange = time.Now()
+						continue
+					}
+					if time.Since(lastChange) >= idle {
+						if req.cancelCause != nil {
+							req.cancelCause(fmt.Errorf("write idle timeout: %ds without progress", rp.WriteIdleTimeout))
+						}
+						return
+					}
+				}
+			}
+		}(writeDoneCh)
+	}
+	defer func() {
+		err := progressReader.Close()
+		if err != nil {
+			res.err = err
+		}
+		if stopWriteMon != nil {
+			close(stopWriteMon)
+		}
+	}()
 
 	var httpReq *http.Request
 	{
@@ -331,29 +331,29 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 		}
 	}
 
-    // 说明：此处使用零值 Transport（&http.Transport{}）。未显式设置的字段遵循“零值语义”，
-    // 与 http.DefaultTransport 的常用默认不同：例如 IdleConnTimeout=0 表示不主动回收空闲连接。
-    ts := &http.Transport{}
-    if rp.IdleConnTimeout > 0 {
-        ts.IdleConnTimeout = time.Duration(rp.IdleConnTimeout) * time.Second // 空闲连接的最长保持时间（仅当 >0 时设置；=0 保持零值，不主动回收）
-    }
-    ts.TLSHandshakeTimeout = time.Duration(rp.TLSHandshakeTimeout) * time.Second     // TLS 握手超时
-    ts.ResponseHeaderTimeout = time.Duration(rp.ResponseHeaderTimeout) * time.Second // 响应头等待超时
-    // ExpectContinueTimeout：仅在请求包含 Expect: 100-continue 时生效；
-    // 设为 0 表示不设置（保持零值：不等待 100-continue，直接发送请求体）。
-    if rp.ExpectContinueTimeout > 0 {
-        ts.ExpectContinueTimeout = time.Duration(rp.ExpectContinueTimeout) * time.Second
-    }
+	// 说明：此处使用零值 Transport（&http.Transport{}）。未显式设置的字段遵循“零值语义”，
+	// 与 http.DefaultTransport 的常用默认不同：例如 IdleConnTimeout=0 表示不主动回收空闲连接。
+	ts := &http.Transport{}
+	if rp.IdleConnTimeout > 0 {
+		ts.IdleConnTimeout = time.Duration(rp.IdleConnTimeout) * time.Second // 空闲连接的最长保持时间（仅当 >0 时设置；=0 保持零值，不主动回收）
+	}
+	ts.TLSHandshakeTimeout = time.Duration(rp.TLSHandshakeTimeout) * time.Second     // TLS 握手超时
+	ts.ResponseHeaderTimeout = time.Duration(rp.ResponseHeaderTimeout) * time.Second // 响应头等待超时
+	// ExpectContinueTimeout：仅在请求包含 Expect: 100-continue 时生效；
+	// 设为 0 表示不设置（保持零值：不等待 100-continue，直接发送请求体）。
+	if rp.ExpectContinueTimeout > 0 {
+		ts.ExpectContinueTimeout = time.Duration(rp.ExpectContinueTimeout) * time.Second
+	}
 
 	// 新增：禁用 HTTP/2，强制使用 HTTP/1.1
 	//ts.TLSNextProto = make(map[string]func(authority string, c *tls.Conn) http.RoundTripper)
 	//超时设置  代理设置
 	{
-        // Dialer 时间设置：Timeout=TCP 连接超时；KeepAlive=TCP 探测间隔
-        netDialer := &net.Dialer{
-            Timeout:   time.Duration(rp.Timeout) * time.Second,          // TCP 连接超时
-            KeepAlive: time.Duration(rp.KeepAliveTimeout) * time.Second, // TCP KeepAlive 间隔
-        }
+		// Dialer 时间设置：Timeout=TCP 连接超时；KeepAlive=TCP 探测间隔
+		netDialer := &net.Dialer{
+			Timeout:   time.Duration(rp.Timeout) * time.Second,          // TCP 连接超时
+			KeepAlive: time.Duration(rp.KeepAliveTimeout) * time.Second, // TCP KeepAlive 间隔
+		}
 
 		if len(req.LocalIP) > 0 { //设置本地网络ip
 
@@ -531,6 +531,11 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 				httpReq.Header.Set(k, v)
 			}
 		}
+		for k, vs := range rp.HeaderAdds {
+			for _, v := range vs {
+				httpReq.Header.Add(k, v)
+			}
+		}
 	}
 
 	httpClient.Jar = req.cookieJar
@@ -608,44 +613,44 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 
 // pedanticReadAll 读取所有字节
 func pedanticReadAll(rp *RequestOptions, r io.Reader, req *Request, ctx context.Context, isText bool) (b []byte, err error) {
-    buf := make([]byte, rp.ReadByteSize)
-    var bItem []byte // bItem 仅用于文本模式下累积数据
+	buf := make([]byte, rp.ReadByteSize)
+	var bItem []byte // bItem 仅用于文本模式下累积数据
 
-    if rp.CacheFullResponse {
-        b = make([]byte, 0)
-    }
-    // 读空闲超时：当长时间无任何数据到达时主动取消
-    var idleTimer *time.Timer
-    var idleDuration time.Duration
-    if rp.ReadIdleTimeout > 0 {
-        idleDuration = time.Duration(rp.ReadIdleTimeout) * time.Second
-        idleTimer = time.NewTimer(idleDuration)
-        // 安全处理：当 ctx 为 nil 时，避免对 nil 上下文调用 Done()
-        var doneCh <-chan struct{}
-        if ctx != nil {
-            doneCh = ctx.Done()
-        }
-        go func(done <-chan struct{}) {
-            for {
-                select {
-                case <-idleTimer.C:
-                    // 触发空闲超时，取消本次请求上下文
-                    if req.cancelCause != nil {
-                        req.cancelCause(fmt.Errorf("read idle timeout: no data for %s", idleDuration))
-                    }
-                    return
-                case <-done:
-                    // 当没有上下文（done=nil）时，此分支永远不会触发
-                    return
-                }
-            }
-        }(doneCh)
-    }
-    // 提取公共发送函数，减少重复代码
-    sendData := func(data []byte) error {
-        if req.ChContentItem == nil {
-            return nil
-        }
+	if rp.CacheFullResponse {
+		b = make([]byte, 0)
+	}
+	// 读空闲超时：当长时间无任何数据到达时主动取消
+	var idleTimer *time.Timer
+	var idleDuration time.Duration
+	if rp.ReadIdleTimeout > 0 {
+		idleDuration = time.Duration(rp.ReadIdleTimeout) * time.Second
+		idleTimer = time.NewTimer(idleDuration)
+		// 安全处理：当 ctx 为 nil 时，避免对 nil 上下文调用 Done()
+		var doneCh <-chan struct{}
+		if ctx != nil {
+			doneCh = ctx.Done()
+		}
+		go func(done <-chan struct{}) {
+			for {
+				select {
+				case <-idleTimer.C:
+					// 触发空闲超时，取消本次请求上下文
+					if req.cancelCause != nil {
+						req.cancelCause(fmt.Errorf("read idle timeout: no data for %s", idleDuration))
+					}
+					return
+				case <-done:
+					// 当没有上下文（done=nil）时，此分支永远不会触发
+					return
+				}
+			}
+		}(doneCh)
+	}
+	// 提取公共发送函数，减少重复代码
+	sendData := func(data []byte) error {
+		if req.ChContentItem == nil {
+			return nil
+		}
 		if ctx != nil {
 			select {
 			case req.ChContentItem <- data:
@@ -659,96 +664,96 @@ func pedanticReadAll(rp *RequestOptions, r io.Reader, req *Request, ctx context.
 			return nil
 		}
 	}
-    defer func() {
-        // 停止空闲计时器，避免泄露
-        if idleTimer != nil {
-            if !idleTimer.Stop() {
-                // 清空可能残留的触发信号
-                select {
-                case <-idleTimer.C:
-                default:
-                }
-            }
-        }
-        // 确保所有数据都被发送
-        if req.ChContentItem != nil && len(bItem) > 0 {
-            dataCopy := make([]byte, len(bItem))
-            copy(dataCopy, bItem)
-            if err := sendData(dataCopy); err != nil {
-                // Log warning if sending remaining data fails
-                fmt.Printf("Warning: Failed to send remaining data (size: %d): %v\n", len(dataCopy), err)
-            }
-        }
-        req.safeCloseContentItemChan() // 替换原 ChContentItem 关闭
-    }()
-    for {
-        if ctx != nil {
-            select {
-            case <-ctx.Done():
-                // 处理中断信号，立即返回已读取的数据和错误
-                return b, ctx.Err()
-            default:
-            }
-        }
-        n, err := r.Read(buf)
-        if n == 0 && err == nil {
-            return nil, fmt.Errorf("Read: n=0 with err=nil") // 出现这种情况时说明发生了未知错误
-        }
-        // 累积数据到结果
-        if n > 0 {
-            // 有数据到达，重置空闲计时器
-            if idleTimer != nil {
-                if !idleTimer.Stop() {
-                    select {
-                    case <-idleTimer.C:
-                    default:
-                    }
-                }
-                idleTimer.Reset(idleDuration)
-            }
-            if rp.CacheFullResponse {
-                b = append(b, buf[:n]...)
-            }
-            // 根据内容类型选择处理方式
-            if isText {
-                bItem = append(bItem, buf[:n]...)
-                // 文本模式按行发送
-                if bytes.Contains(buf[:n], []byte("\n")) {
-                    dataCopy := make([]byte, len(bItem))
-                    copy(dataCopy, bItem)
-                    if err := sendData(dataCopy); err != nil {
-                        return b, err
-                    }
-                    bItem = bItem[:0] // 清空已发送数据
-                }
-            } else {
-                // 二进制模式按块发送
-                dataCopy := make([]byte, n)
-                copy(dataCopy, buf[:n])
-                if err := sendData(dataCopy); err != nil {
-                    return b, err
-                }
-            }
-        }
+	defer func() {
+		// 停止空闲计时器，避免泄露
+		if idleTimer != nil {
+			if !idleTimer.Stop() {
+				// 清空可能残留的触发信号
+				select {
+				case <-idleTimer.C:
+				default:
+				}
+			}
+		}
+		// 确保所有数据都被发送
+		if req.ChContentItem != nil && len(bItem) > 0 {
+			dataCopy := make([]byte, len(bItem))
+			copy(dataCopy, bItem)
+			if err := sendData(dataCopy); err != nil {
+				// Log warning if sending remaining data fails
+				fmt.Printf("Warning: Failed to send remaining data (size: %d): %v\n", len(dataCopy), err)
+			}
+		}
+		req.safeCloseContentItemChan() // 替换原 ChContentItem 关闭
+	}()
+	for {
+		if ctx != nil {
+			select {
+			case <-ctx.Done():
+				// 处理中断信号，立即返回已读取的数据和错误
+				return b, ctx.Err()
+			default:
+			}
+		}
+		n, err := r.Read(buf)
+		if n == 0 && err == nil {
+			return nil, fmt.Errorf("Read: n=0 with err=nil") // 出现这种情况时说明发生了未知错误
+		}
+		// 累积数据到结果
+		if n > 0 {
+			// 有数据到达，重置空闲计时器
+			if idleTimer != nil {
+				if !idleTimer.Stop() {
+					select {
+					case <-idleTimer.C:
+					default:
+					}
+				}
+				idleTimer.Reset(idleDuration)
+			}
+			if rp.CacheFullResponse {
+				b = append(b, buf[:n]...)
+			}
+			// 根据内容类型选择处理方式
+			if isText {
+				bItem = append(bItem, buf[:n]...)
+				// 文本模式按行发送
+				if bytes.Contains(buf[:n], []byte("\n")) {
+					dataCopy := make([]byte, len(bItem))
+					copy(dataCopy, bItem)
+					if err := sendData(dataCopy); err != nil {
+						return b, err
+					}
+					bItem = bItem[:0] // 清空已发送数据
+				}
+			} else {
+				// 二进制模式按块发送
+				dataCopy := make([]byte, n)
+				copy(dataCopy, buf[:n])
+				if err := sendData(dataCopy); err != nil {
+					return b, err
+				}
+			}
+		}
 
-        // 先处理错误前的残留数据，再处理错误
-        if err != nil {
-            if err == io.EOF && isText && len(bItem) > 0 {
-                // 如果是EOF并且有残留数据，强制发送
-                dataCopy := make([]byte, len(bItem))
-                copy(dataCopy, bItem)
-                if err := sendData(dataCopy); err != nil {
-                    // Log the failure, but allow function to return EOF
-                    fmt.Printf("Warning: Failed to send remaining text data (size: %d): %v\n", len(dataCopy), err)
-                }
-                bItem = bItem[:0]
-            }
-            if err == io.EOF {
-                return b, nil // EOF 正常返回
-            }
-            return b, err // 其他错误返回错误，避免静默截断
-        }
-    }
+		// 先处理错误前的残留数据，再处理错误
+		if err != nil {
+			if err == io.EOF && isText && len(bItem) > 0 {
+				// 如果是EOF并且有残留数据，强制发送
+				dataCopy := make([]byte, len(bItem))
+				copy(dataCopy, bItem)
+				if err := sendData(dataCopy); err != nil {
+					// Log the failure, but allow function to return EOF
+					fmt.Printf("Warning: Failed to send remaining text data (size: %d): %v\n", len(dataCopy), err)
+				}
+				bItem = bItem[:0]
+			}
+			if err == io.EOF {
+				return b, nil // EOF 正常返回
+			}
+			return b, err // 其他错误返回错误，避免静默截断
+		}
+	}
 }
 
 // 判断字符串是IP地址还是域名

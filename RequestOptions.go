@@ -5,8 +5,9 @@ type RequestOptions struct {
 	RefererUrl        string            // Referer 请求头（作为来源 URL）
 	IsGetJson         int               // 是否偏好接收 JSON：1=设置 Accept 为 JSON；0/−1=保持默认
 	IsPostJson        int               // 是否以 JSON 提交：1=Content-Type 为 application/json；0=form；−1=保持默认
-	Header            map[string]string // 自定义请求头（键值对，覆盖默认头）
-	Cookie            string            // 为当前 URL 设置 Cookie（写入 CookieJar）
+	Header            map[string]string   // 自定义请求头（键值对，覆盖默认头）
+	HeaderAdds        map[string][]string // 自定义请求头（键值对，添加到现有头，支持多个值）
+	Cookie            string              // 为当前 URL 设置 Cookie（写入 CookieJar）
 	CookieAll         string            // 为当前 URL 及其根域设置 Cookie（两处写入 CookieJar）
 	RedirectCount     int               // 最大重定向次数（>0 启用限制，否则用默认策略）
 	CacheFullResponse bool              // 是否缓存完整响应体（默认 true；大文件建议关闭以节省内存）
@@ -32,6 +33,7 @@ func (req *Request) GetRequestOptions(strUrl string, opts ...requestOptionsInter
 		IsPostJson:        -1,
 		IsGetJson:         -1,
 		Header:            make(map[string]string),
+		HeaderAdds:        make(map[string][]string),
 		RedirectCount:     30,
 		CacheFullResponse: true,
 
@@ -125,6 +127,13 @@ func OptRefererUrl(refererUrl string) requestOptionsInterface {
 func OptHeader(header map[string]string) requestOptionsInterface {
 	return newFuncRequests(func(ro *RequestOptions) {
 		ro.Header = header
+	})
+}
+
+// OptHeaderAdds 设置自定义请求头（键值对，添加到现有头，支持多个值）
+func OptHeaderAdds(headerAdds map[string][]string) requestOptionsInterface {
+	return newFuncRequests(func(ro *RequestOptions) {
+		ro.HeaderAdds = headerAdds
 	})
 }
 
