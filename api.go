@@ -532,8 +532,9 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 			}
 		}
 		for k, vs := range rp.HeaderAdds {
+			httpReq.Header.Del(strings.ToLower(k))
 			for _, v := range vs {
-				httpReq.Header.Add(k, v)
+				httpReq.Header.Add(strings.ToLower(k), v)
 			}
 		}
 	}
