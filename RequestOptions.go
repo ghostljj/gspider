@@ -1,16 +1,16 @@
 package gspider
 
 type RequestOptions struct {
-	ReadByteSize      int               // 读取缓冲区大小（每次从响应体读取的字节数）
-	RefererUrl        string            // Referer 请求头（作为来源 URL）
-	IsGetJson         int               // 是否偏好接收 JSON：1=设置 Accept 为 JSON；0/−1=保持默认
-	IsPostJson        int               // 是否以 JSON 提交：1=Content-Type 为 application/json；0=form；−1=保持默认
+	ReadByteSize      int                 // 读取缓冲区大小（每次从响应体读取的字节数）
+	RefererUrl        string              // Referer 请求头（作为来源 URL）
+	IsGetJson         int                 // 是否偏好接收 JSON：1=设置 Accept 为 JSON；0/−1=保持默认
+	IsPostJson        int                 // 是否以 JSON 提交：1=Content-Type 为 application/json；0=form；−1=保持默认
 	Header            map[string]string   // 自定义请求头（键值对，覆盖默认头）
 	HeaderAdds        map[string][]string // 自定义请求头（键值对，添加到现有头，支持多个值）
 	Cookie            string              // 为当前 URL 设置 Cookie（写入 CookieJar）
-	CookieAll         string            // 为当前 URL 及其根域设置 Cookie（两处写入 CookieJar）
-	RedirectCount     int               // 最大重定向次数（>0 启用限制，否则用默认策略）
-	CacheFullResponse bool              // 是否缓存完整响应体（默认 true；大文件建议关闭以节省内存）
+	CookieAll         string              // 为当前 URL 及其根域设置 Cookie（两处写入 CookieJar）
+	RedirectCount     int                 // 最大重定向次数（>0 启用限制，否则用默认策略）
+	CacheFullResponse bool                // 是否缓存完整响应体（默认 true；大文件建议关闭以节省内存）
 
 	// —— 时间与超时设置 ——
 	Timeout               int64  // 连接建立超时（TCP Dial 超时，单位：秒）。0=禁用。PostBig 中会被提升到至少 5 小时
@@ -24,6 +24,7 @@ type RequestOptions struct {
 	IdleConnTimeout       int64  // 空闲连接保活时长（单位：秒）。0=不设置（保持零值：不主动关闭空闲连接）；默认 90 秒以匹配 http.DefaultTransport 行为
 	TcpDelay              int64  // 连接成功后注入的延迟（单位：秒，用于限速/调试）。默认 0
 	CancelGroup           string // 取消分组标识，用于更灵活地按分组取消正在进行的请求
+
 }
 
 func (req *Request) GetRequestOptions(strUrl string, opts ...requestOptionsInterface) (ro *RequestOptions) {
@@ -47,10 +48,12 @@ func (req *Request) GetRequestOptions(strUrl string, opts ...requestOptionsInter
 		KeepAliveTimeout:      30, // TCP KeepAlive 间隔，默认 30 秒
 		IdleConnTimeout:       90, // 空闲连接保活时长，默认 90 秒
 		TcpDelay:              0,  // 注入连接延迟（限速/调试），默认禁用
+
 	}
 	for _, opt := range opts {
 		opt.apply(ro) //这里是塞入实体，针对实体赋值
 	}
+	// SurfBrowserProfile 不在 RequestOptions 中维护，统一从 Request 读取
 	if ro.Cookie != "" {
 		req.SetCookies(strUrl, ro.Cookie)
 	}

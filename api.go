@@ -17,7 +17,9 @@ import (
 	"time"
 
 	"github.com/andybalholm/brotli"
-
+	uquic "github.com/enetx/uquic"
+	"github.com/enetx/uquic/http3"
+	utls "github.com/enetx/utls"
 	"golang.org/x/net/proxy"
 )
 
@@ -205,7 +207,11 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	res.reqUrl = reqURI.String()
 
 	// 允许整体超时为可选：当 ReadWriteTimeout<=0 时，不设置客户端超时（无限）
-	httpClient := &http.Client{}
+	//var httpClient *http.Client
+	httpClient := req.getSurfHttpClient(rp, res)
+	if httpClient == nil {
+		return res
+	}
 	if rp.ReadWriteTimeout > 0 {
 		httpClient.Timeout = time.Duration(rp.ReadWriteTimeout) * time.Second
 	}
@@ -331,8 +337,14 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 		}
 	}
 
-	// 说明：此处使用零值 Transport（&http.Transport{}）。未显式设置的字段遵循“零值语义”，
+	// 说明：此处使用零值 Transport（&http.Transport{}）。未显式设置的字段遵循"零值语义"，
 	// 与 http.DefaultTransport 的常用默认不同：例如 IdleConnTimeout=0 表示不主动回收空闲连接。
+	// 若启用了 Surf，则避免覆盖其 Transport 以保留指纹配置
+	// 否则，按现有逻辑构建 Transport
+
+	// 非 Surf 模式下的 HTTP/3 支持
+	var useHTTP3 = req.http3 && req.surfBrowserProfile == SurfBrowserDisabled
+
 	ts := &http.Transport{}
 	if rp.IdleConnTimeout > 0 {
 		ts.IdleConnTimeout = time.Duration(rp.IdleConnTimeout) * time.Second // 空闲连接的最长保持时间（仅当 >0 时设置；=0 保持零值，不主动回收）
@@ -484,7 +496,54 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 			}
 		}
 	}
-	httpClient.Transport = ts
+	// 非 Surf 模式（Request.surfBrowserProfile 为 Disabled）下使用自定义 *http.Transport
+	if req.surfBrowserProfile == SurfBrowserDisabled {
+		// 如果启用了 HTTP/3，使用 HTTP/3 RoundTripper
+		if useHTTP3 {
+			// 创建 utls.Config（从 tls.Config 转换）
+			var utlsConfig *utls.Config
+			if ts.TLSClientConfig != nil {
+				utlsConfig = &utls.Config{
+					InsecureSkipVerify: ts.TLSClientConfig.InsecureSkipVerify,
+					ServerName:         ts.TLSClientConfig.ServerName,
+					RootCAs:            ts.TLSClientConfig.RootCAs,
+					MinVersion:         ts.TLSClientConfig.MinVersion,
+					MaxVersion:         ts.TLSClientConfig.MaxVersion,
+				}
+				// 转换证书（如果有）
+				if len(ts.TLSClientConfig.Certificates) > 0 {
+					utlsCerts := make([]utls.Certificate, len(ts.TLSClientConfig.Certificates))
+					for i, cert := range ts.TLSClientConfig.Certificates {
+						utlsCerts[i] = utls.Certificate{
+							Certificate: cert.Certificate,
+							PrivateKey:  cert.PrivateKey,
+						}
+					}
+					utlsConfig.Certificates = utlsCerts
+				}
+			} else {
+				utlsConfig = &utls.Config{
+					InsecureSkipVerify: true,
+				}
+			}
+
+			// 创建 HTTP/3 RoundTripper
+			http3Transport := &http3.RoundTripper{
+				TLSClientConfig: utlsConfig,
+				QuicConfig: &uquic.Config{
+					// 可以在这里配置 QUIC 参数
+					MaxIdleTimeout: time.Duration(rp.IdleConnTimeout) * time.Second,
+				},
+			}
+
+			// 使用适配器将 HTTP/3 RoundTripper 转换为标准的 net/http.RoundTripper
+			httpClient.Transport = &http3TransportAdapter{
+				http3Transport: http3Transport,
+			}
+		} else {
+			httpClient.Transport = ts
+		}
+	}
 
 	//设置重定向次数 默认重定向10次
 	if rp.RedirectCount > 0 {
@@ -503,8 +562,12 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 		if len(rp.RefererUrl) > 0 {
 			sendHeader["referer"] = rp.RefererUrl
 		}
-		if len(req.UserAgent) > 0 {
-			sendHeader["user-agent"] = req.UserAgent
+		// UA 统一策略：启用 Surf 指纹时，不再用 req.UserAgent 覆盖 Surf 的 UA
+		// 仅在未启用 Surf（=Disabled）时才使用 req.UserAgent
+		if req.surfBrowserProfile == SurfBrowserDisabled {
+			if len(req.UserAgent) > 0 {
+				sendHeader["user-agent"] = req.UserAgent
+			}
 		}
 
 		for k, v := range req.defaultHeaderTemplate {
@@ -540,7 +603,10 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	}
 
 	httpClient.Jar = req.cookieJar
-	httpReq.Close = true
+	// 连接关闭策略：非 Surf 模式默认短连接；Surf 模式可通过 Request.surfClose 强制短连接
+	if req.surfBrowserProfile == SurfBrowserDisabled || req.surfClose {
+		httpReq.Close = true
+	}
 
 	// 如果存在请求体，也应该设置 httpReq.ContentLength
 	if len(bytesPostData) > 0 {

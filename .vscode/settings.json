@@ -6,5 +6,6 @@
       "unusedparams": true
     },
     "staticcheck": true
-  }
+  },
+  "chatgpt.openOnStartup": true
 }

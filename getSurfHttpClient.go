@@ -4,13 +4,14 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"github.com/enetx/surf"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/enetx/surf"
 )
 
 // —— Surf 枚举类型：更稳妥的系统与浏览器版本设置 ——
@@ -30,70 +31,70 @@ const (
 type SurfBrowserProfile int
 
 const (
-    // Disabled 表示未启用 Surf；仅当设置为非 Disabled 档位时才启用 Surf
-    SurfBrowserDisabled SurfBrowserProfile = iota
-    SurfBrowserDefault                  // 默认稳定版（按浏览器稳定画像）
-    // Chrome 指纹档位（可扩展；未知档位将回退到稳定版）
-    SurfBrowserChromeStable
-    SurfBrowserChrome58
-    SurfBrowserChrome62
-    SurfBrowserChrome70
-    SurfBrowserChrome72
-    SurfBrowserChrome83
-    SurfBrowserChrome87
-    SurfBrowserChrome96
-    SurfBrowserChrome100
-    SurfBrowserChrome102
-    SurfBrowserChrome106
-    SurfBrowserChrome120
-    SurfBrowserChrome120PQ
-    SurfBrowserChrome142
-    // Edge（按 Chrome 家族处理）
-    SurfBrowserEdgeStable
-    SurfBrowserEdge85
-    SurfBrowserEdge106
-    // Firefox 家族
-    SurfBrowserFirefoxStable
-    SurfBrowserFirefox55
-    SurfBrowserFirefox56
-    SurfBrowserFirefox63
-    SurfBrowserFirefox65
-    SurfBrowserFirefox99
-    SurfBrowserFirefox102
-    SurfBrowserFirefox105
-    SurfBrowserFirefox120
-    SurfBrowserFirefox141
-    SurfBrowserFirefox144
-    SurfBrowserFirefoxPrivate144
-    // Tor（按 Firefox 家族处理）
-    SurfBrowserTor
-    SurfBrowserTorPrivate
-    // iOS/Safari 家族
-    SurfBrowserSafari  // Safari 自动档位
-    SurfBrowserAndroid // Android OkHttp 指纹
-    SurfBrowserIOS
-    SurfBrowserIOS11
-    SurfBrowserIOS12
-    SurfBrowserIOS13
-    SurfBrowserIOS14
-    // Randomized（不固定版本）
-    SurfBrowserRandomized
-    SurfBrowserRandomizedALPN
-    SurfBrowserRandomizedNoALPN
+	// Disabled 表示未启用 Surf；仅当设置为非 Disabled 档位时才启用 Surf
+	SurfBrowserDisabled SurfBrowserProfile = iota
+	SurfBrowserDefault                     // 默认稳定版（按浏览器稳定画像）
+	// Chrome 指纹档位（可扩展；未知档位将回退到稳定版）
+	SurfBrowserChromeStable
+	SurfBrowserChrome58
+	SurfBrowserChrome62
+	SurfBrowserChrome70
+	SurfBrowserChrome72
+	SurfBrowserChrome83
+	SurfBrowserChrome87
+	SurfBrowserChrome96
+	SurfBrowserChrome100
+	SurfBrowserChrome102
+	SurfBrowserChrome106
+	SurfBrowserChrome120
+	SurfBrowserChrome120PQ
+	SurfBrowserChrome142
+	// Edge（按 Chrome 家族处理）
+	SurfBrowserEdgeStable
+	SurfBrowserEdge85
+	SurfBrowserEdge106
+	// Firefox 家族
+	SurfBrowserFirefoxStable
+	SurfBrowserFirefox55
+	SurfBrowserFirefox56
+	SurfBrowserFirefox63
+	SurfBrowserFirefox65
+	SurfBrowserFirefox99
+	SurfBrowserFirefox102
+	SurfBrowserFirefox105
+	SurfBrowserFirefox120
+	SurfBrowserFirefox141
+	SurfBrowserFirefox144
+	SurfBrowserFirefoxPrivate144
+	// Tor（按 Firefox 家族处理）
+	SurfBrowserTor
+	SurfBrowserTorPrivate
+	// iOS/Safari 家族
+	SurfBrowserSafari  // Safari 自动档位
+	SurfBrowserAndroid // Android OkHttp 指纹
+	SurfBrowserIOS
+	SurfBrowserIOS11
+	SurfBrowserIOS12
+	SurfBrowserIOS13
+	SurfBrowserIOS14
+	// Randomized（不固定版本）
+	SurfBrowserRandomized
+	SurfBrowserRandomizedALPN
+	SurfBrowserRandomizedNoALPN
 )
 
-func (req *Request) getHttpClient(rp *RequestOptions, res *Response) *http.Client {
-    // Surf 模式：仅当 Request 上的 SurfBrowserProfile 为非 Disabled 时启用
-    if req.surfBrowserProfile == SurfBrowserDisabled {
-        return &http.Client{}
-    }
+func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.Client {
+	// Surf 模式：仅当 Request 上的 SurfBrowserProfile 为非 Disabled 时启用
+	if req.surfBrowserProfile == SurfBrowserDisabled {
+		return &http.Client{}
+	}
 	// 允许整体超时为可选：当 ReadWriteTimeout<=0 时，不设置客户端超时（无限）
 	var httpClient *http.Client
 	// 当开启 Surf 浏览器指纹模拟时，使用其 Std() 客户端以保留指纹特性
 
-    imp := surf.NewClient().Builder().Impersonate()
-    // 使用 Request 上的枚举设置系统
-    switch req.surfOS {
+	imp := surf.NewClient().Builder().Impersonate()
+	// 使用 Request 上的枚举设置系统
+	switch req.surfOS {
 	case SurfOSWindows, SurfOSDefault:
 		imp = imp.Windows()
 	case SurfOSAndroid:
@@ -109,9 +110,9 @@ func (req *Request) getHttpClient(rp *RequestOptions, res *Response) *http.Clien
 	default:
 		imp = imp.Windows()
 	}
-    // 浏览器+版本：使用枚举 SurfBrowserProfile（按家族选择 Builder）
-    var b *surf.Builder
-    switch req.surfBrowserProfile {
+	// 浏览器+版本：使用枚举 SurfBrowserProfile（按家族选择 Builder）
+	var b *surf.Builder
+	switch req.surfBrowserProfile {
 	// Chrome 家族（含 Edge/Safari/iOS/Randomized/Android 默认走 Chrome）
 	case SurfBrowserDefault,
 		SurfBrowserChromeStable, SurfBrowserChrome58, SurfBrowserChrome62, SurfBrowserChrome70, SurfBrowserChrome72,
@@ -133,8 +134,8 @@ func (req *Request) getHttpClient(rp *RequestOptions, res *Response) *http.Clien
 	}
 
 	// 指纹版本（JA3/JA4）：按枚举档位设置（对已知方法进行精确映射，其余家族稳定版）
-    ja := b.JA()
-    switch req.surfBrowserProfile {
+	ja := b.JA()
+	switch req.surfBrowserProfile {
 	// —— Chrome 家族 ——
 	case SurfBrowserChromeStable:
 		b = ja.Chrome()
@@ -253,10 +254,10 @@ func (req *Request) getHttpClient(rp *RequestOptions, res *Response) *http.Clien
 			b = b.Proxy(envProxy)
 		}
 	}
-    // HTTP/3（QUIC）开启与否（在 Builder 上）；按家族选择 QUIC 指纹
-    if req.surfHTTP3 {
-        settings := b.HTTP3Settings()
-        switch req.surfBrowserProfile {
+	// HTTP/3（QUIC）开启与否（在 Builder 上）；按家族选择 QUIC 指纹
+	if req.http3 {
+		settings := b.HTTP3Settings()
+		switch req.surfBrowserProfile {
 		// Chrome 家族（含 Edge/Safari/iOS/Randomized/Android 默认走 Chrome QUIC）
 		case SurfBrowserDefault,
 			SurfBrowserChromeStable, SurfBrowserChrome58, SurfBrowserChrome62, SurfBrowserChrome70, SurfBrowserChrome72,
@@ -292,11 +293,11 @@ func (req *Request) getHttpClient(rp *RequestOptions, res *Response) *http.Clien
 	}
 
 	// Surf 模式下尽可能绑定本地 IP 与 DialContext（仅在 *http.Transport 下生效；HTTP/3 不适用）
-    if tr, ok := httpClient.Transport.(*http.Transport); ok {
-        // 若用户要求强制短连接，在传输层禁用 Keep-Alive
-        if req.surfClose {
-            tr.DisableKeepAlives = true
-        }
+	if tr, ok := httpClient.Transport.(*http.Transport); ok {
+		// 若用户要求强制短连接，在传输层禁用 Keep-Alive
+		if req.surfClose {
+			tr.DisableKeepAlives = true
+		}
 		baseDialer := &net.Dialer{
 			Timeout:   time.Duration(rp.Timeout) * time.Second,
 			KeepAlive: time.Duration(rp.KeepAliveTimeout) * time.Second,
