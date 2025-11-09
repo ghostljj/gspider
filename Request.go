@@ -1,14 +1,3 @@
-// Package 这是一个Get Post 强大模拟器
-//
-// request 是请求对象 ,申请一个新对象，gspider.Session()
-//
-// response 是返回对象1
-//
-//	文档安装调试
-//	  1、 go get -u golang.org/x/pkgsite/cmd/pkgsite@latest
-//	  2、 go install golang.org/x/pkgsite/cmd/pkgsite@latest
-//	  3、 pkgsite -http=:6060 -list=false
-//	  4、 打开 http://127.0.0.1:6060/github.com/ghostljj/gspider#pkg-overview
 package gspider
 
 import (

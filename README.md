@@ -113,7 +113,7 @@ Post 时注意，送给同学们url.QueryEscape 这个函数，用于参数编�
 req.SetSurfBrowserProfile(gs.SurfBrowserChromeStable) // 浏览器+版本（枚举）
 res := req.Get("https://example.com",
 )
-// 系统（枚举）、HTTP/3、连接策略均在 Request 上配置：
+req.SetSurfHTTP3(true)            // 是否启用 HTTP/3（QUIC）指纹
 req.SetSurfOS(gs.SurfOSRandomDesktop)
 req.SetHTTP3(true)                // 是否启用 HTTP/3（QUIC）指纹
 // 默认 Surf 模式为短连接；如需复用可设置：
@@ -143,7 +143,7 @@ req.SetSurfClose(false)           // 关闭强制短连接以保留 Keep-Alive�
 // 启用 Surf，固定 Chrome 142 指纹，复用连接，开启 HTTP/3（QUIC）并使用对应 QUIC 指纹
 req.SetSurfBrowserProfile(gs.SurfBrowserChrome142)
 res := req.Get("https://example.com",
-)
+req.SetSurfHTTP3(true)  // HTTP/3 使用按浏览器选择的 QUIC 指纹
 req.SetSurfClose(false) // 允许连接复用（HTTP/1.1/HTTP/2 有效）
 req.SetHTTP3(true)      // HTTP/3 使用按浏览器选择的 QUIC 指纹
 )
@@ -151,14 +151,14 @@ req.SetHTTP3(true)      // HTTP/3 使用按浏览器选择的 QUIC 指纹
 // 使用较旧的 Chrome 87 指纹，短连接，HTTP/2（禁用 H3）
 req.SetSurfBrowserProfile(gs.SurfBrowserChrome87)
 res2 := req.Get("https://example.org",
-)
+req.SetSurfHTTP3(false) // 使用 *http.Transport，支持 LocalIP 绑定与连接控制
 req.SetSurfClose(true)  // 强制短连接
 req.SetHTTP3(false)     // 使用 *http.Transport，支持 LocalIP 绑定与连接控制
 )
 
 // Firefox：指定版本 token 将回退到稳定版 Firefox 指纹
 req.SetSurfBrowserProfile(gs.SurfBrowserFirefoxStable)
-res3 := req.Get("https://mozilla.org",
+req.SetSurfHTTP3(true)
 )
 req.SetHTTP3(true)
 )
@@ -191,7 +191,6 @@ req.SetSurfHTTP3(false)             // 如需本地绑定与短连接控制，�
 )
 ```
 
-注意：
 - `LocalIP` 绑定和 `req.SetSurfClose(...)` 的传输层行为仅在 `*http.Transport`（HTTP/1.1/HTTP/2）下生效；HTTP/3（QUIC）由 Surf 内部栈管理，连接关闭语义不同。
 
 
