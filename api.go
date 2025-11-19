@@ -1,13 +1,13 @@
 package gspider
 
 import (
-    "bytes"
-    "compress/zlib"
-    "compress/flate"
-    "compress/gzip"
-    "context"
-    "crypto/tls"
-    "encoding/base64"
+	"bytes"
+	"compress/flate"
+	"compress/gzip"
+	"compress/zlib"
+	"context"
+	"crypto/tls"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net"
@@ -602,18 +602,7 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 				sendHeader["accept-encoding"] = strings.Join(filtered, ", ")
 			}
 		}
-		hop := map[string]struct{}{
-			"connection":          {},
-			"proxy-connection":    {},
-			"keep-alive":          {},
-			"transfer-encoding":   {},
-			"upgrade":             {},
-			"te":                   {},
-		}
 		for k, v := range sendHeader {
-			if _, bad := hop[strings.ToLower(k)]; bad {
-				continue
-			}
 			if len(v) <= 0 { //为空删除
 				httpReq.Header.Del(k)
 			} else {
@@ -622,9 +611,6 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 		}
 		for k, vs := range rp.HeaderAdds {
 			lk := strings.ToLower(k)
-			if _, bad := hop[lk]; bad {
-				continue
-			}
 			httpReq.Header.Del(lk)
 			for _, v := range vs {
 				httpReq.Header.Add(lk, v)
