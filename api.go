@@ -1,27 +1,24 @@
 package gspider
 
 import (
-	"bytes"
-	"compress/flate"
-	"compress/gzip"
-	"compress/zlib"
-	"context"
-	"crypto/tls"
-	"encoding/base64"
-	"fmt"
-	"io"
-	"net"
-	"net/http"
-	"net/url"
-	"strings"
-	"sync/atomic"
-	"time"
+    "bytes"
+    "compress/flate"
+    "compress/gzip"
+    "compress/zlib"
+    "context"
+    "crypto/tls"
+    "encoding/base64"
+    "fmt"
+    "io"
+    "net"
+    "net/http"
+    "net/url"
+    "strings"
+    "sync/atomic"
+    "time"
 
-	"github.com/andybalholm/brotli"
-	uquic "github.com/enetx/uquic"
-	"github.com/enetx/uquic/http3"
-	utls "github.com/enetx/utls"
-	"golang.org/x/net/proxy"
+    "github.com/andybalholm/brotli"
+    "golang.org/x/net/proxy"
 )
 
 //--------------------------------------------------------------------------------------------------------------
@@ -343,8 +340,7 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	// 若启用了 Surf，则避免覆盖其 Transport 以保留指纹配置
 	// 否则，按现有逻辑构建 Transport
 
-	// 非 Surf 模式下的 HTTP/3 支持
-	var useHTTP3 = req.http3 && req.surfBrowserProfile == SurfBrowserDisabled
+    // 非 Surf 模式：不再支持 HTTP/3
 
 	ts := &http.Transport{}
 	if rp.IdleConnTimeout > 0 {
@@ -497,54 +493,10 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 			}
 		}
 	}
-	// 非 Surf 模式（Request.surfBrowserProfile 为 Disabled）下使用自定义 *http.Transport
-	if req.surfBrowserProfile == SurfBrowserDisabled {
-		// 如果启用了 HTTP/3，使用 HTTP/3 RoundTripper
-		if useHTTP3 {
-			// 创建 utls.Config（从 tls.Config 转换）
-			var utlsConfig *utls.Config
-			if ts.TLSClientConfig != nil {
-				utlsConfig = &utls.Config{
-					InsecureSkipVerify: ts.TLSClientConfig.InsecureSkipVerify,
-					ServerName:         ts.TLSClientConfig.ServerName,
-					RootCAs:            ts.TLSClientConfig.RootCAs,
-					MinVersion:         ts.TLSClientConfig.MinVersion,
-					MaxVersion:         ts.TLSClientConfig.MaxVersion,
-				}
-				// 转换证书（如果有）
-				if len(ts.TLSClientConfig.Certificates) > 0 {
-					utlsCerts := make([]utls.Certificate, len(ts.TLSClientConfig.Certificates))
-					for i, cert := range ts.TLSClientConfig.Certificates {
-						utlsCerts[i] = utls.Certificate{
-							Certificate: cert.Certificate,
-							PrivateKey:  cert.PrivateKey,
-						}
-					}
-					utlsConfig.Certificates = utlsCerts
-				}
-			} else {
-				utlsConfig = &utls.Config{
-					InsecureSkipVerify: true,
-				}
-			}
-
-			// 创建 HTTP/3 RoundTripper
-			http3Transport := &http3.RoundTripper{
-				TLSClientConfig: utlsConfig,
-				QuicConfig: &uquic.Config{
-					// 可以在这里配置 QUIC 参数
-					MaxIdleTimeout: time.Duration(rp.IdleConnTimeout) * time.Second,
-				},
-			}
-
-			// 使用适配器将 HTTP/3 RoundTripper 转换为标准的 net/http.RoundTripper
-			httpClient.Transport = &http3TransportAdapter{
-				http3Transport: http3Transport,
-			}
-		} else {
-			httpClient.Transport = ts
-		}
-	}
+    // 非 Surf 模式（Request.surfBrowserProfile 为 Disabled）下使用自定义 *http.Transport
+    if req.surfBrowserProfile == SurfBrowserDisabled {
+        httpClient.Transport = ts
+    }
 
 	//设置重定向次数 默认重定向10次
 	if rp.RedirectCount > 0 {

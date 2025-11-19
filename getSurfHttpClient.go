@@ -254,30 +254,6 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 			b = b.Proxy(envProxy)
 		}
 	}
-	// HTTP/3（QUIC）开启与否（在 Builder 上）；按家族选择 QUIC 指纹
-	if req.http3 {
-		settings := b.HTTP3Settings()
-		switch req.surfBrowserProfile {
-		// Chrome 家族（含 Edge/Safari/iOS/Randomized/Android 默认走 Chrome QUIC）
-		case SurfBrowserDefault,
-			SurfBrowserChromeStable, SurfBrowserChrome58, SurfBrowserChrome62, SurfBrowserChrome70, SurfBrowserChrome72,
-			SurfBrowserChrome83, SurfBrowserChrome87, SurfBrowserChrome96, SurfBrowserChrome100, SurfBrowserChrome102,
-			SurfBrowserChrome106, SurfBrowserChrome120, SurfBrowserChrome120PQ, SurfBrowserChrome142,
-			SurfBrowserEdgeStable, SurfBrowserEdge85, SurfBrowserEdge106,
-			SurfBrowserRandomized, SurfBrowserRandomizedALPN, SurfBrowserRandomizedNoALPN,
-			SurfBrowserSafari, SurfBrowserIOS, SurfBrowserIOS11, SurfBrowserIOS12, SurfBrowserIOS13, SurfBrowserIOS14,
-			SurfBrowserAndroid:
-			b = settings.Chrome().Set()
-		// Firefox 家族（含 Tor）
-		case SurfBrowserFirefoxStable, SurfBrowserFirefox55, SurfBrowserFirefox56, SurfBrowserFirefox63, SurfBrowserFirefox65,
-			SurfBrowserFirefox99, SurfBrowserFirefox102, SurfBrowserFirefox105, SurfBrowserFirefox120,
-			SurfBrowserFirefox141, SurfBrowserFirefox144, SurfBrowserFirefoxPrivate144,
-			SurfBrowserTor, SurfBrowserTorPrivate:
-			b = settings.Firefox().Set()
-		default:
-			b = settings.Chrome().Set()
-		}
-	}
 	client := b.Build()
 	httpClient = client.Std()
 	// 尝试应用 mTLS/证书配置到标准客户端（若底层为 *http.Transport）

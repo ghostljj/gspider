@@ -25,9 +25,7 @@ require (
 	github.com/gaukas/godicttls v0.0.4 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/google/gopacket v1.1.19 // indirect
-	github.com/google/licensecheck v0.3.1 // indirect
 	github.com/google/pprof v0.0.0-20250403155104-27863c87afa6 // indirect
-	github.com/google/safehtml v0.1.0 // indirect
 	github.com/klauspost/compress v1.18.1 // indirect
 	github.com/onsi/ginkgo/v2 v2.27.2 // indirect
 	github.com/quic-go/qpack v0.5.1 // indirect
@@ -38,12 +36,10 @@ require (
 	golang.org/x/crypto v0.43.0 // indirect
 	golang.org/x/exp v0.0.0-20251023183803-a4bb9ffd2546 // indirect
 	golang.org/x/mod v0.29.0 // indirect
-	golang.org/x/pkgsite v0.0.0-20251106022650-0d7e29046a91 // indirect
 	golang.org/x/sync v0.18.0 // indirect
 	golang.org/x/sys v0.37.0 // indirect
 	golang.org/x/text v0.30.0 // indirect
 	golang.org/x/tools v0.38.0 // indirect
-	rsc.io/markdown v0.0.0-20241212154241-6bf72452917f // indirect
 )
 
 replace github.com/ghostljj/gspider => .
