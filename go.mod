@@ -7,10 +7,7 @@ toolchain go1.24.4
 require (
 	github.com/andybalholm/brotli v1.2.0
 	github.com/axgle/mahonia v0.0.0-20180208002826-3358181d7394
-	github.com/enetx/http v1.0.19
 	github.com/enetx/surf v1.0.141
-	github.com/enetx/uquic v0.0.0-20250922085439-3a2249d297c9
-	github.com/enetx/utls v0.0.0-20251024090823-efbd194d7328
 	github.com/saintfish/chardet v0.0.0-20230101081208-5e3ef4b5456d
 	golang.org/x/net v0.46.0
 )
@@ -19,8 +16,11 @@ require (
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/cloudflare/circl v1.3.3 // indirect
 	github.com/enetx/g v1.0.194 // indirect
+	github.com/enetx/http v1.0.19 // indirect
 	github.com/enetx/http2 v1.0.20 // indirect
 	github.com/enetx/iter v0.0.0-20250912135656-f1583323588f // indirect
+	github.com/enetx/uquic v0.0.0-20250922085439-3a2249d297c9 // indirect
+	github.com/enetx/utls v0.0.0-20251024090823-efbd194d7328 // indirect
 	github.com/gaukas/clienthellod v0.4.2 // indirect
 	github.com/gaukas/godicttls v0.0.4 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
