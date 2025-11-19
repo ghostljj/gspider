@@ -41,7 +41,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("无法拷贝文件内容: %v", err)
 	}
-	multipartWriter.Close()
+	multipartWriter.Close()//重点
 
 	fmt.Println("文件大小", len(requestBody.String()))
 
@@ -57,7 +57,7 @@ func main() {
 	res := req.PostBig(url,
 		requestBody.Bytes(),
 		gs.OptRefererUrl(url),
-		gs.OptHeader(map[string]string{"Content-Type": multipartWriter.FormDataContentType()}),
+		gs.OptHeader(map[string]string{"Content-Type": multipartWriter.FormDataContentType()}),//重点
 		gs.OptCookie("aa=11;bb=22"),
 		gs.OptHeader(map[string]string{"h1": "v1", "h2": "v2"}),
 	)

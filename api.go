@@ -1,12 +1,13 @@
 package gspider
 
 import (
-	"bytes"
-	"compress/flate"
-	"compress/gzip"
-	"context"
-	"crypto/tls"
-	"encoding/base64"
+    "bytes"
+    "compress/zlib"
+    "compress/flate"
+    "compress/gzip"
+    "context"
+    "crypto/tls"
+    "encoding/base64"
 	"fmt"
 	"io"
 	"net"
@@ -587,7 +588,32 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 		for k, v := range rp.Header {
 			sendHeader[strings.ToLower(k)] = v
 		}
+		if ae, ok := sendHeader["accept-encoding"]; ok {
+			if strings.Contains(strings.ToLower(ae), "zstd") {
+				parts := strings.Split(ae, ",")
+				filtered := make([]string, 0, len(parts))
+				for _, p := range parts {
+					s := strings.TrimSpace(p)
+					if strings.EqualFold(s, "zstd") {
+						continue
+					}
+					filtered = append(filtered, s)
+				}
+				sendHeader["accept-encoding"] = strings.Join(filtered, ", ")
+			}
+		}
+		hop := map[string]struct{}{
+			"connection":          {},
+			"proxy-connection":    {},
+			"keep-alive":          {},
+			"transfer-encoding":   {},
+			"upgrade":             {},
+			"te":                   {},
+		}
 		for k, v := range sendHeader {
+			if _, bad := hop[strings.ToLower(k)]; bad {
+				continue
+			}
 			if len(v) <= 0 { //为空删除
 				httpReq.Header.Del(k)
 			} else {
@@ -595,9 +621,13 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 			}
 		}
 		for k, vs := range rp.HeaderAdds {
-			httpReq.Header.Del(strings.ToLower(k))
+			lk := strings.ToLower(k)
+			if _, bad := hop[lk]; bad {
+				continue
+			}
+			httpReq.Header.Del(lk)
 			for _, v := range vs {
-				httpReq.Header.Add(strings.ToLower(k), v)
+				httpReq.Header.Add(lk, v)
 			}
 		}
 	}
@@ -659,7 +689,13 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 				return res
 			}
 		case "deflate":
-			reader = flate.NewReader(httpRes.Body)
+			var zr io.ReadCloser
+			zr, err = zlib.NewReader(httpRes.Body)
+			if err == nil {
+				reader = zr
+			} else {
+				reader = flate.NewReader(httpRes.Body)
+			}
 		default:
 			reader = httpRes.Body
 		}

@@ -298,6 +298,19 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 		if req.surfClose {
 			tr.DisableKeepAlives = true
 		}
+		// 应用握手与响应头等待超时（Surf 下可用时）
+		if rp.TLSHandshakeTimeout > 0 {
+			tr.TLSHandshakeTimeout = time.Duration(rp.TLSHandshakeTimeout) * time.Second
+		}
+		if rp.ResponseHeaderTimeout > 0 {
+			tr.ResponseHeaderTimeout = time.Duration(rp.ResponseHeaderTimeout) * time.Second
+		}
+		if rp.ExpectContinueTimeout > 0 {
+			tr.ExpectContinueTimeout = time.Duration(rp.ExpectContinueTimeout) * time.Second
+		}
+		if rp.IdleConnTimeout > 0 {
+			tr.IdleConnTimeout = time.Duration(rp.IdleConnTimeout) * time.Second
+		}
 		baseDialer := &net.Dialer{
 			Timeout:   time.Duration(rp.Timeout) * time.Second,
 			KeepAlive: time.Duration(rp.KeepAliveTimeout) * time.Second,
