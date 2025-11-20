@@ -601,6 +601,17 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 				httpReq.Header.Add(lk, v)
 			}
 		}
+
+		// 最终清理：删除任何包含非法字符或魔术键的头名，避免标准 net/http 拒绝
+		for k := range httpReq.Header {
+			kk := strings.TrimSpace(k)
+			if kk == "Header-Order:" || kk == "PHeader-Order:" || strings.Contains(kk, ":") || strings.ContainsAny(kk, "\r\n\t ") {
+				if req.debug {
+					Log.Printf("debug: drop magic/invalid header name=%q", k)
+				}
+				httpReq.Header.Del(k)
+			}
+		}
 	}
 
 	httpClient.Jar = req.cookieJar
