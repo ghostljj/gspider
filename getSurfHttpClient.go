@@ -235,9 +235,15 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 		if u, err := url.Parse(strings.TrimSpace(req.HttpProxyInfo)); err == nil {
 			if u == nil || u.Scheme == "" || strings.HasPrefix(strings.ToLower(u.Scheme), "http") {
 				b = b.ForceHTTP1()
+				if req.debug {
+					Log.Printf("debug: force http/1.1 due to http proxy: %s", strings.TrimSpace(req.HttpProxyInfo))
+				}
 			}
 		} else if req.HttpProxyAuto {
 			b = b.ForceHTTP1()
+			if req.debug {
+				Log.Printf("debug: force http/1.1 due to environment proxy")
+			}
 		}
 	}
 
@@ -340,12 +346,22 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 				}
 			}
 
+			if req.debug {
+				Log.Printf("debug: dial begin url=%s proxy=%s network=%s addr=%s", res.reqUrl, proxyStr, network, addr)
+			}
+
 			if len(proxyStr) > 0 {
 				u, err := url.Parse(proxyStr)
 				if err == nil && u != nil && strings.HasPrefix(strings.ToLower(u.Scheme), "http") {
-					// HTTP/HTTPS 代理：执行 CONNECT
+				if req.debug {
+					Log.Printf("debug: http proxy parsed scheme=%s host=%s", u.Scheme, u.Host)
+				}
+				// HTTP/HTTPS 代理：执行 CONNECT
 					conn, err := baseDialer.DialContext(ctx, network, u.Host)
 					if err != nil {
+						if req.debug {
+							Log.Printf("debug: dial proxy host failed host=%s err=%v", u.Host, err)
+						}
 						return nil, err
 					}
 					auth := ""
@@ -358,18 +374,30 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 						}
 					}
 					tryConnect := func(headerHost string, keepAlive bool) (net.Conn, *bufio.Reader, error) {
+						if req.debug {
+							Log.Printf("debug: CONNECT headerHost=%s keepAlive=%v", headerHost, keepAlive)
+						}
 						if keepAlive {
 							_, err = fmt.Fprintf(conn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n%sProxy-Connection: keep-alive\r\nConnection: keep-alive\r\n\r\n", addr, headerHost, auth)
 						} else {
 							_, err = fmt.Fprintf(conn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n%sProxy-Connection: close\r\nConnection: close\r\n\r\n", addr, headerHost, auth)
 						}
 						if err != nil {
+							if req.debug {
+								Log.Printf("debug: write CONNECT err=%v", err)
+							}
 							return nil, nil, err
 						}
 						br := bufio.NewReader(conn)
 						statusLine, err := br.ReadString('\n')
 						if err != nil {
+							if req.debug {
+								Log.Printf("debug: read CONNECT status err=%v", err)
+							}
 							return nil, nil, err
+						}
+						if req.debug {
+							Log.Printf("debug: CONNECT status=%s", strings.TrimSpace(statusLine))
 						}
 						if !strings.Contains(statusLine, "200") {
 							return nil, nil, fmt.Errorf("proxy CONNECT failed: %s", strings.TrimSpace(statusLine))
@@ -377,6 +405,9 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 						for {
 							line, err := br.ReadString('\n')
 							if err != nil {
+								if req.debug {
+									Log.Printf("debug: read CONNECT header err=%v", err)
+								}
 								return nil, nil, err
 							}
 							if line == "\r\n" {
@@ -415,13 +446,31 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 				if u != nil && len(u.Host) > 0 {
 					host = u.Host
 				}
-				dialer, err := proxy.SOCKS5("tcp", host, socksAuth, baseDialer)
-				if err != nil {
-					return nil, err
-				}
-				if ctxDialer, ok := dialer.(proxy.ContextDialer); ok {
-					conn, err := ctxDialer.DialContext(ctx, network, addr)
+					dialer, err := proxy.SOCKS5("tcp", host, socksAuth, baseDialer)
 					if err != nil {
+						if req.debug {
+							Log.Printf("debug: socks5 dialer create host=%s err=%v", host, err)
+						}
+						return nil, err
+					}
+					if ctxDialer, ok := dialer.(proxy.ContextDialer); ok {
+						conn, err := ctxDialer.DialContext(ctx, network, addr)
+						if err != nil {
+							if req.debug {
+								Log.Printf("debug: socks5 DialContext err=%v", err)
+							}
+							return nil, err
+						}
+						if rp.TcpDelay > 0 {
+							time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
+						}
+						return conn, nil
+					}
+					conn, err := dialer.Dial(network, addr)
+					if err != nil {
+						if req.debug {
+							Log.Printf("debug: socks5 Dial err=%v", err)
+						}
 						return nil, err
 					}
 					if rp.TcpDelay > 0 {
@@ -429,23 +478,20 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 					}
 					return conn, nil
 				}
-				conn, err := dialer.Dial(network, addr)
-				if err != nil {
-					return nil, err
-				}
-				if rp.TcpDelay > 0 {
-					time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
-				}
-				return conn, nil
-			}
 
 			// 直连
 			conn, err := baseDialer.DialContext(ctx, network, addr)
 			if err != nil {
+				if req.debug {
+					Log.Printf("debug: direct dial err=%v", err)
+				}
 				return nil, err
 			}
 			if rp.TcpDelay > 0 {
 				time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
+			}
+			if req.debug {
+				Log.Printf("debug: direct dial ok")
 			}
 			return conn, nil
 		}

@@ -53,6 +53,7 @@ type Request struct {
     surfBrowserProfile SurfBrowserProfile // Surf 浏览器+版本指纹
     surfClose          bool               // 是否强制短连接（Connection: close）
     surfOS             SurfOS             // Surf 操作系统指纹
+    debug              bool
 }
 
 // SetHTTP3 启用或关闭 HTTP/3（QUIC）指纹,还没成熟，不支持代理
@@ -75,6 +76,10 @@ func (req *Request) SetSurfClose(enable bool) {
 func (req *Request) SetSurfOS(kind SurfOS) {
     req.surfOS = kind
     req.UserAgent = req.GetSurfUserAgent()
+}
+
+func (req *Request) SetDebug(enable bool) {
+    req.debug = enable
 }
 
 
@@ -127,6 +132,7 @@ func defaultRequest() *Request {
     req.http3 = false
     req.surfClose = true // Surf 模式默认短连接，更可控
     req.surfOS = SurfOSDefault
+    req.debug = false
 
 	return &req
 }

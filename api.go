@@ -584,53 +584,53 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 		httpReq.ContentLength = int64(len(bytesPostData))
 	}
 
-	httpRes, err := httpClient.Do(httpReq)
-	if err != nil && req.surfBrowserProfile != SurfBrowserDisabled && len(req.HttpProxyInfo) > 0 {
-		if tr, ok := httpClient.Transport.(*http.Transport); ok {
-			p := strings.TrimSpace(req.HttpProxyInfo)
-			host := p
-			var auth *proxy.Auth
-			if u, e := url.Parse(p); e == nil && len(u.Host) > 0 {
-				host = u.Host
-				if u.User != nil {
-					user := u.User.Username()
-					pass, _ := u.User.Password()
-					if len(user) > 0 {
-						auth = &proxy.Auth{User: user, Password: pass}
-					}
-				}
-			}
-			base := &net.Dialer{Timeout: time.Duration(rp.Timeout) * time.Second, KeepAlive: time.Duration(rp.KeepAliveTimeout) * time.Second}
-			d, e2 := proxy.SOCKS5("tcp", host, auth, base)
-			if e2 == nil {
-				tr.Proxy = nil
-				if ctxDialer, ok2 := d.(proxy.ContextDialer); ok2 {
-					tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-						c, e3 := ctxDialer.DialContext(ctx, network, addr)
-						if e3 != nil {
-							return nil, e3
-						}
-						if rp.TcpDelay > 0 {
-							time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
-						}
-						return c, nil
-					}
-				} else {
-					tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-						c, e3 := d.Dial(network, addr)
-						if e3 != nil {
-							return nil, e3
-						}
-						if rp.TcpDelay > 0 {
-							time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
-						}
-						return c, nil
-					}
-				}
-				httpRes, err = httpClient.Do(httpReq)
-			}
-		}
-	}
+    httpRes, err := httpClient.Do(httpReq)
+    if err != nil && req.surfBrowserProfile != SurfBrowserDisabled && len(req.HttpProxyInfo) > 0 {
+        if tr, ok := httpClient.Transport.(*http.Transport); ok {
+            p := strings.TrimSpace(req.HttpProxyInfo)
+            host := p
+            var auth *proxy.Auth
+            if u, e := url.Parse(p); e == nil && len(u.Host) > 0 {
+                host = u.Host
+                if u.User != nil {
+                    user := u.User.Username()
+                    pass, _ := u.User.Password()
+                    if len(user) > 0 {
+                        auth = &proxy.Auth{User: user, Password: pass}
+                    }
+                }
+            }
+            base := &net.Dialer{Timeout: time.Duration(rp.Timeout) * time.Second, KeepAlive: time.Duration(rp.KeepAliveTimeout) * time.Second}
+            d, e2 := proxy.SOCKS5("tcp", host, auth, base)
+            if e2 == nil {
+                tr.Proxy = nil
+                if ctxDialer, ok2 := d.(proxy.ContextDialer); ok2 {
+                    tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+                        c, e3 := ctxDialer.DialContext(ctx, network, addr)
+                        if e3 != nil {
+                            return nil, e3
+                        }
+                        if rp.TcpDelay > 0 {
+                            time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
+                        }
+                        return c, nil
+                    }
+                } else {
+                    tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+                        c, e3 := d.Dial(network, addr)
+                        if e3 != nil {
+                            return nil, e3
+                        }
+                        if rp.TcpDelay > 0 {
+                            time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
+                        }
+                        return c, nil
+                    }
+                }
+                httpRes, err = httpClient.Do(httpReq)
+            }
+        }
+    }
 
 	if httpRes != nil {
 		defer func() {
@@ -639,11 +639,14 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 		}()
 	}
 
-	if err != nil {
-		res.resBytes = []byte(err.Error())
-		res.err = err
-		return res
-	}
+    if err != nil {
+        if req.debug {
+            Log.Printf("debug: request error url=%s err=%v", res.reqUrl, err)
+        }
+        res.resBytes = []byte(err.Error())
+        res.err = err
+        return res
+    }
 
 	if req.chHttpResponse != nil {
 		req.chHttpResponse <- httpRes
