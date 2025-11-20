@@ -573,7 +573,8 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	}
 
 	httpClient.Jar = req.cookieJar
-	// 连接关闭策略：非 Surf 模式默认短连接；Surf 模式可通过 Request.surfClose 强制短连接
+	// 连接关闭策略：仅在非 Surf 模式下使用请求级 Connection: close；
+	// Surf 模式下改由传输层禁用 keep-alive 控制连接复用
 	if req.surfBrowserProfile == SurfBrowserDisabled || req.surfClose {
 		httpReq.Close = true
 	}

@@ -1,16 +1,18 @@
 package gspider
 
 import (
-	"context"
-	"crypto/tls"
-	"fmt"
-	"net"
-	"net/http"
-	"os"
-	"strings"
-	"time"
+    "context"
+    "crypto/tls"
+    "fmt"
+    "net"
+    "net/http"
+    "net/url"
+    "os"
+    "strings"
+    "time"
 
-	"github.com/enetx/surf"
+    "github.com/enetx/surf"
+    "golang.org/x/net/proxy"
 )
 
 // —— Surf 枚举类型：更稳妥的系统与浏览器版本设置 ——
@@ -261,67 +263,116 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 		}
 	}
 
-	// Surf 模式下尽可能绑定本地 IP 与 DialContext（仅在 *http.Transport 下生效；HTTP/3 不适用）
-	if tr, ok := httpClient.Transport.(*http.Transport); ok {
-		if req.disableHTTP2 {
-			tr.TLSNextProto = make(map[string]func(authority string, c *tls.Conn) http.RoundTripper)
-		}
-		// 若用户要求强制短连接，在传输层禁用 Keep-Alive
-		if req.surfClose {
-			tr.DisableKeepAlives = true
-		}
-		// 应用握手与响应头等待超时（Surf 下可用时）
-		if rp.TLSHandshakeTimeout > 0 {
-			tr.TLSHandshakeTimeout = time.Duration(rp.TLSHandshakeTimeout) * time.Second
-		}
-		if rp.ResponseHeaderTimeout > 0 {
-			tr.ResponseHeaderTimeout = time.Duration(rp.ResponseHeaderTimeout) * time.Second
-		}
-		if rp.ExpectContinueTimeout > 0 {
-			tr.ExpectContinueTimeout = time.Duration(rp.ExpectContinueTimeout) * time.Second
-		}
-		if rp.IdleConnTimeout > 0 {
-			tr.IdleConnTimeout = time.Duration(rp.IdleConnTimeout) * time.Second
-		}
-		baseDialer := &net.Dialer{
-			Timeout:   time.Duration(rp.Timeout) * time.Second,
-			KeepAlive: time.Duration(rp.KeepAliveTimeout) * time.Second,
-		}
-		if len(req.LocalIP) > 0 {
-			var localTCPAddr *net.TCPAddr
-			if isIPAddress(req.LocalIP) {
-				ip := net.ParseIP(req.LocalIP)
-				if ip == nil {
-					res.resBytes = []byte(fmt.Sprintf("无效的IP地址: %s", req.LocalIP))
-					res.err = fmt.Errorf("无效的IP地址: %s", req.LocalIP)
-					return nil
-				}
-				localTCPAddr = &net.TCPAddr{IP: ip, Port: 0}
-			} else {
-				addr, err := net.ResolveIPAddr("ip4", req.LocalIP)
-				if err != nil {
-					addr, err = net.ResolveIPAddr("ip6", req.LocalIP)
-					if err != nil {
-						res.resBytes = []byte(fmt.Sprintf("域名解析失败: %v", err))
-						res.err = err
-						return nil
-					}
-				}
-				localTCPAddr = &net.TCPAddr{IP: addr.IP, Port: 0}
-			}
-			baseDialer.LocalAddr = localTCPAddr
-		}
-		tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-			conn, err := baseDialer.DialContext(ctx, network, addr)
-			if err != nil {
-				return nil, err
-			}
-			if rp.TcpDelay > 0 {
-				time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
-			}
-			return conn, nil
-		}
-	}
+    // Surf 模式下尽可能绑定本地 IP、设置代理并覆盖 DialContext（仅在 *http.Transport 下生效；HTTP/3 不适用）
+    if tr, ok := httpClient.Transport.(*http.Transport); ok {
+        // 若用户要求强制短连接，在传输层禁用 Keep-Alive
+        if req.surfClose {
+            tr.DisableKeepAlives = true
+        }
+        // 应用握手与响应头等待超时（Surf 下可用时）
+        if rp.TLSHandshakeTimeout > 0 {
+            tr.TLSHandshakeTimeout = time.Duration(rp.TLSHandshakeTimeout) * time.Second
+        }
+        if rp.ResponseHeaderTimeout > 0 {
+            tr.ResponseHeaderTimeout = time.Duration(rp.ResponseHeaderTimeout) * time.Second
+        }
+        if rp.ExpectContinueTimeout > 0 {
+            tr.ExpectContinueTimeout = time.Duration(rp.ExpectContinueTimeout) * time.Second
+        }
+        if rp.IdleConnTimeout > 0 {
+            tr.IdleConnTimeout = time.Duration(rp.IdleConnTimeout) * time.Second
+        }
+        baseDialer := &net.Dialer{
+            Timeout:   time.Duration(rp.Timeout) * time.Second,
+            KeepAlive: time.Duration(rp.KeepAliveTimeout) * time.Second,
+        }
+        if len(req.LocalIP) > 0 {
+            var localTCPAddr *net.TCPAddr
+            if isIPAddress(req.LocalIP) {
+                ip := net.ParseIP(req.LocalIP)
+                if ip == nil {
+                    res.resBytes = []byte(fmt.Sprintf("无效的IP地址: %s", req.LocalIP))
+                    res.err = fmt.Errorf("无效的IP地址: %s", req.LocalIP)
+                    return nil
+                }
+                localTCPAddr = &net.TCPAddr{IP: ip, Port: 0}
+            } else {
+                addr, err := net.ResolveIPAddr("ip4", req.LocalIP)
+                if err != nil {
+                    addr, err = net.ResolveIPAddr("ip6", req.LocalIP)
+                    if err != nil {
+                        res.resBytes = []byte(fmt.Sprintf("域名解析失败: %v", err))
+                        res.err = err
+                        return nil
+                    }
+                }
+                localTCPAddr = &net.TCPAddr{IP: addr.IP, Port: 0}
+            }
+            baseDialer.LocalAddr = localTCPAddr
+        }
+
+        // —— 代理设置（JA 指纹模式下库侧跳过了 Proxy 中间件，这里在 Transport 上显式配置）——
+        if req.HttpProxyAuto {
+            tr.Proxy = http.ProxyFromEnvironment
+        }
+        if len(req.HttpProxyInfo) > 0 {
+            if proxyURL, err := url.Parse(strings.TrimSpace(req.HttpProxyInfo)); err == nil {
+                tr.Proxy = http.ProxyURL(proxyURL)
+            } else {
+                res.resBytes = []byte(err.Error())
+                res.err = err
+                return nil
+            }
+        }
+
+        tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+            conn, err := baseDialer.DialContext(ctx, network, addr)
+            if err != nil {
+                return nil, err
+            }
+            if rp.TcpDelay > 0 {
+                time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
+            }
+            return conn, nil
+        }
+
+        // SOCKS5 代理优先：当设置了 Socks5Address 时，覆盖 DialContext 使用 SOCKS5
+        if len(req.Socks5Address) > 0 {
+            var socksAuth *proxy.Auth
+            if len(req.Socks5User) > 0 {
+                socksAuth = &proxy.Auth{User: req.Socks5User, Password: req.Socks5Pass}
+            }
+            socksDialer, err := proxy.SOCKS5("tcp", strings.TrimSpace(req.Socks5Address), socksAuth, baseDialer)
+            if err != nil {
+                res.resBytes = []byte(err.Error())
+                res.err = err
+                return nil
+            }
+            if ctxDialer, ok := socksDialer.(proxy.ContextDialer); ok {
+                tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+                    conn, err := ctxDialer.DialContext(ctx, network, addr)
+                    if err != nil {
+                        return nil, err
+                    }
+                    if rp.TcpDelay > 0 {
+                        time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
+                    }
+                    return conn, nil
+                }
+            } else {
+                tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+                    conn, err := socksDialer.Dial(network, addr)
+                    if err != nil {
+                        return nil, err
+                    }
+                    if rp.TcpDelay > 0 {
+                        time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
+                    }
+                    return conn, nil
+                }
+            }
+        }
+    }
 
 	return httpClient
 }
