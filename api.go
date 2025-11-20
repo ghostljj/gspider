@@ -587,12 +587,15 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	httpRes, err := httpClient.Do(httpReq)
 	if err != nil && req.surfBrowserProfile != SurfBrowserDisabled && (len(req.HttpProxyInfo) > 0 || req.HttpProxyAuto || len(req.Socks5Address) > 0) {
 		// 回退到非 Surf 的标准 Transport 以提升代理兼容性
-		tsFallback := &http.Transport{}
-		tsFallback.TLSHandshakeTimeout = time.Duration(rp.TLSHandshakeTimeout) * time.Second
-		tsFallback.ResponseHeaderTimeout = time.Duration(rp.ResponseHeaderTimeout) * time.Second
-		if rp.ExpectContinueTimeout > 0 {
-			tsFallback.ExpectContinueTimeout = time.Duration(rp.ExpectContinueTimeout) * time.Second
-		}
+        tsFallback := &http.Transport{}
+        tsFallback.TLSHandshakeTimeout = time.Duration(rp.TLSHandshakeTimeout) * time.Second
+        tsFallback.ResponseHeaderTimeout = time.Duration(rp.ResponseHeaderTimeout) * time.Second
+        if rp.ExpectContinueTimeout > 0 {
+            tsFallback.ExpectContinueTimeout = time.Duration(rp.ExpectContinueTimeout) * time.Second
+        }
+        if rp.IdleConnTimeout > 0 {
+            tsFallback.IdleConnTimeout = time.Duration(rp.IdleConnTimeout) * time.Second
+        }
 		if req.Verify && req.tlsClientConfig != nil {
 			tsFallback.TLSClientConfig = req.tlsClientConfig
 		} else {
