@@ -1,8 +1,10 @@
 package gspider
 
 import (
+    "bufio"
     "context"
     "crypto/tls"
+    "encoding/base64"
     "fmt"
     "net"
     "net/http"
@@ -326,6 +328,55 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
         }
 
         tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+            if len(req.Socks5Address) == 0 && len(req.HttpProxyInfo) > 0 {
+                u, err := url.Parse(strings.TrimSpace(req.HttpProxyInfo))
+                if err != nil {
+                    return nil, err
+                }
+                proxyHost := u.Host
+                conn, err := baseDialer.DialContext(ctx, network, proxyHost)
+                if err != nil {
+                    return nil, err
+                }
+                auth := ""
+                if u.User != nil {
+                    user := u.User.Username()
+                    pass, _ := u.User.Password()
+                    if len(user) > 0 {
+                        token := base64.StdEncoding.EncodeToString([]byte(user + ":" + pass))
+                        auth = "Proxy-Authorization: Basic " + token + "\r\n"
+                    }
+                }
+                _, err = fmt.Fprintf(conn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n%sProxy-Connection: keep-alive\r\nConnection: keep-alive\r\n\r\n", addr, addr, auth)
+                if err != nil {
+                    _ = conn.Close()
+                    return nil, err
+                }
+                br := bufio.NewReader(conn)
+                statusLine, err := br.ReadString('\n')
+                if err != nil {
+                    _ = conn.Close()
+                    return nil, err
+                }
+                if !strings.Contains(statusLine, "200") {
+                    _ = conn.Close()
+                    return nil, fmt.Errorf("proxy CONNECT failed: %s", strings.TrimSpace(statusLine))
+                }
+                for {
+                    line, err := br.ReadString('\n')
+                    if err != nil {
+                        _ = conn.Close()
+                        return nil, err
+                    }
+                    if line == "\r\n" {
+                        break
+                    }
+                }
+                if rp.TcpDelay > 0 {
+                    time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
+                }
+                return conn, nil
+            }
             conn, err := baseDialer.DialContext(ctx, network, addr)
             if err != nil {
                 return nil, err
