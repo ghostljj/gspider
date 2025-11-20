@@ -675,7 +675,17 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
         }
         // 使用回退客户端重试一次
         fbClient := &http.Client{Transport: tsFallback, Timeout: httpClient.Timeout}
-        httpRes, err = fbClient.Do(httpReq)
+        reqClone := httpReq.Clone(httpReq.Context())
+        for k := range reqClone.Header {
+            kk := strings.TrimSpace(k)
+            if kk == "Header-Order:" || kk == "PHeader-Order:" || strings.Contains(kk, ":") || strings.ContainsAny(kk, "\r\n\t ") {
+                if req.debug {
+                    Log.Printf("debug: fallback drop magic/invalid header name=%q", k)
+                }
+                reqClone.Header.Del(k)
+            }
+        }
+        httpRes, err = fbClient.Do(reqClone)
     }
 
 	if httpRes != nil {
