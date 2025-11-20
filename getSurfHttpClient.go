@@ -399,9 +399,23 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 						if req.debug {
 							Log.Printf("debug: CONNECT status=%s", strings.TrimSpace(statusLine))
 						}
-						if !strings.Contains(statusLine, "200") {
-							return nil, nil, fmt.Errorf("proxy CONNECT failed: %s", strings.TrimSpace(statusLine))
-						}
+                        if !strings.Contains(statusLine, "200") {
+                            if req.debug {
+                                Log.Printf("debug: CONNECT not 200, fallback to HTTP/1.0")
+                            }
+                            _, err = fmt.Fprintf(conn, "CONNECT %s HTTP/1.0\r\nHost: %s\r\n%s\r\n\r\n", addr, headerHost, auth)
+                            if err != nil {
+                                return nil, nil, fmt.Errorf("proxy CONNECT failed: %s", strings.TrimSpace(statusLine))
+                            }
+                            br = bufio.NewReader(conn)
+                            statusLine, err = br.ReadString('\n')
+                            if req.debug {
+                                Log.Printf("debug: CONNECT(1.0) status=%s err=%v", strings.TrimSpace(statusLine), err)
+                            }
+                            if err != nil || !strings.Contains(statusLine, "200") {
+                                return nil, nil, fmt.Errorf("proxy CONNECT failed: %s", strings.TrimSpace(statusLine))
+                            }
+                        }
 						for {
 							line, err := br.ReadString('\n')
 							if err != nil {
