@@ -230,6 +230,17 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 		b = ja.Android()
 	}
 
+	// 当使用显式 HTTP 代理或环境代理时，强制使用 HTTP/1.1，避免代理对 HTTP/2 的兼容性问题
+	if len(strings.TrimSpace(req.HttpProxyInfo)) > 0 || req.HttpProxyAuto {
+		if u, err := url.Parse(strings.TrimSpace(req.HttpProxyInfo)); err == nil {
+			if u == nil || u.Scheme == "" || strings.HasPrefix(strings.ToLower(u.Scheme), "http") {
+				b = b.ForceHTTP1()
+			}
+		} else if req.HttpProxyAuto {
+			b = b.ForceHTTP1()
+		}
+	}
+
 	// 代理映射：优先 SOCKS5，其次显式 HTTP(S) 代理，最后环境代理
 	if len(req.Socks5Address) > 0 {
 		//socks5://user:pass@host:port
@@ -313,117 +324,122 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
             baseDialer.LocalAddr = localTCPAddr
         }
 
-        // —— 代理设置（JA 指纹模式下库侧跳过了 Proxy 中间件，这里在 Transport 上显式配置）——
-        if req.HttpProxyAuto {
-            tr.Proxy = http.ProxyFromEnvironment
-        }
-        if len(req.HttpProxyInfo) > 0 {
-            if proxyURL, err := url.Parse(strings.TrimSpace(req.HttpProxyInfo)); err == nil {
-                tr.Proxy = http.ProxyURL(proxyURL)
-            } else {
-                res.resBytes = []byte(err.Error())
-                res.err = err
-                return nil
-            }
-        }
 
-        tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-            if len(req.Socks5Address) == 0 && len(req.HttpProxyInfo) > 0 {
-                u, err := url.Parse(strings.TrimSpace(req.HttpProxyInfo))
-                if err != nil {
-                    return nil, err
-                }
-                proxyHost := u.Host
-                conn, err := baseDialer.DialContext(ctx, network, proxyHost)
-                if err != nil {
-                    return nil, err
-                }
-                auth := ""
-                if u.User != nil {
-                    user := u.User.Username()
-                    pass, _ := u.User.Password()
-                    if len(user) > 0 {
-                        token := base64.StdEncoding.EncodeToString([]byte(user + ":" + pass))
-                        auth = "Proxy-Authorization: Basic " + token + "\r\n"
-                    }
-                }
-                _, err = fmt.Fprintf(conn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n%sProxy-Connection: keep-alive\r\nConnection: keep-alive\r\n\r\n", addr, addr, auth)
-                if err != nil {
-                    _ = conn.Close()
-                    return nil, err
-                }
-                br := bufio.NewReader(conn)
-                statusLine, err := br.ReadString('\n')
-                if err != nil {
-                    _ = conn.Close()
-                    return nil, err
-                }
-                if !strings.Contains(statusLine, "200") {
-                    _ = conn.Close()
-                    return nil, fmt.Errorf("proxy CONNECT failed: %s", strings.TrimSpace(statusLine))
-                }
-                for {
-                    line, err := br.ReadString('\n')
-                    if err != nil {
-                        _ = conn.Close()
-                        return nil, err
-                    }
-                    if line == "\r\n" {
-                        break
-                    }
-                }
-                if rp.TcpDelay > 0 {
-                    time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
-                }
-                return conn, nil
-            }
-            conn, err := baseDialer.DialContext(ctx, network, addr)
-            if err != nil {
-                return nil, err
-            }
-            if rp.TcpDelay > 0 {
-                time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
-            }
-            return conn, nil
-        }
+		tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+			// 统一代理选择：优先 Socks5，其次显式 HttpProxyInfo，最后环境变量
+			proxyStr := ""
+			if len(req.Socks5Address) > 0 {
+				proxyStr = strings.TrimSpace(req.Socks5Address)
+			} else if len(req.HttpProxyInfo) > 0 {
+				proxyStr = strings.TrimSpace(req.HttpProxyInfo)
+			} else if req.HttpProxyAuto {
+				for _, key := range []string{"HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"} {
+					if val := os.Getenv(key); len(strings.TrimSpace(val)) > 0 {
+						proxyStr = strings.TrimSpace(val)
+						break
+					}
+				}
+			}
 
-        // SOCKS5 代理优先：当设置了 Socks5Address 时，覆盖 DialContext 使用 SOCKS5
-        if len(req.Socks5Address) > 0 {
-            var socksAuth *proxy.Auth
-            if len(req.Socks5User) > 0 {
-                socksAuth = &proxy.Auth{User: req.Socks5User, Password: req.Socks5Pass}
-            }
-            socksDialer, err := proxy.SOCKS5("tcp", strings.TrimSpace(req.Socks5Address), socksAuth, baseDialer)
-            if err != nil {
-                res.resBytes = []byte(err.Error())
-                res.err = err
-                return nil
-            }
-            if ctxDialer, ok := socksDialer.(proxy.ContextDialer); ok {
-                tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-                    conn, err := ctxDialer.DialContext(ctx, network, addr)
-                    if err != nil {
-                        return nil, err
-                    }
-                    if rp.TcpDelay > 0 {
-                        time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
-                    }
-                    return conn, nil
-                }
-            } else {
-                tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-                    conn, err := socksDialer.Dial(network, addr)
-                    if err != nil {
-                        return nil, err
-                    }
-                    if rp.TcpDelay > 0 {
-                        time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
-                    }
-                    return conn, nil
-                }
-            }
-        }
-    }
+			if len(proxyStr) > 0 {
+				u, err := url.Parse(proxyStr)
+				if err == nil && u != nil && strings.HasPrefix(strings.ToLower(u.Scheme), "http") {
+					// HTTP/HTTPS 代理：执行 CONNECT
+					conn, err := baseDialer.DialContext(ctx, network, u.Host)
+					if err != nil {
+						return nil, err
+					}
+					auth := ""
+					if u.User != nil {
+						user := u.User.Username()
+						pass, _ := u.User.Password()
+						if len(user) > 0 {
+							token := base64.StdEncoding.EncodeToString([]byte(user + ":" + pass))
+							auth = "Proxy-Authorization: Basic " + token + "\r\n"
+						}
+					}
+					_, err = fmt.Fprintf(conn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n%sProxy-Connection: keep-alive\r\nConnection: keep-alive\r\n\r\n", addr, addr, auth)
+					if err != nil {
+						_ = conn.Close()
+						return nil, err
+					}
+					br := bufio.NewReader(conn)
+					statusLine, err := br.ReadString('\n')
+					if err != nil {
+						_ = conn.Close()
+						return nil, err
+					}
+					if !strings.Contains(statusLine, "200") {
+						_ = conn.Close()
+						return nil, fmt.Errorf("proxy CONNECT failed: %s", strings.TrimSpace(statusLine))
+					}
+					for {
+						line, err := br.ReadString('\n')
+						if err != nil {
+							_ = conn.Close()
+							return nil, err
+						}
+						if line == "\r\n" {
+							break
+						}
+					}
+					if rp.TcpDelay > 0 {
+						time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
+					}
+					return conn, nil
+				}
+				// SOCKS5 或无 scheme：按 SOCKS5 处理
+				var socksAuth *proxy.Auth
+				// 若采用 URL 形式携带认证，解析之
+				u, _ = url.Parse(proxyStr)
+				if u != nil && u.User != nil {
+					user := u.User.Username()
+					pass, _ := u.User.Password()
+					if len(user) > 0 {
+						socksAuth = &proxy.Auth{User: user, Password: pass}
+					}
+				}
+				host := proxyStr
+				if u != nil && len(u.Host) > 0 {
+					host = u.Host
+				}
+				dialer, err := proxy.SOCKS5("tcp", host, socksAuth, baseDialer)
+				if err != nil {
+					return nil, err
+				}
+				if ctxDialer, ok := dialer.(proxy.ContextDialer); ok {
+					conn, err := ctxDialer.DialContext(ctx, network, addr)
+					if err != nil {
+						return nil, err
+					}
+					if rp.TcpDelay > 0 {
+						time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
+					}
+					return conn, nil
+				}
+				conn, err := dialer.Dial(network, addr)
+				if err != nil {
+					return nil, err
+				}
+				if rp.TcpDelay > 0 {
+					time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
+				}
+				return conn, nil
+			}
+
+			// 直连
+			conn, err := baseDialer.DialContext(ctx, network, addr)
+			if err != nil {
+				return nil, err
+			}
+			if rp.TcpDelay > 0 {
+				time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
+			}
+			return conn, nil
+		}
+
+		// 统一 DialContext 已处理所有代理情形，无需额外覆盖
+	}
 
 	return httpClient
 }
