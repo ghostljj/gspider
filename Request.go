@@ -48,11 +48,12 @@ type Request struct {
 	groupCancelCauses  map[string]context.CancelCauseFunc
 	groupCounts        map[string]int // 分组活动请求计数，用于自动清理空分组
 
-	// 默认 Surf 指纹配置
-	http3              bool               // 是否启用 HTTP/3（QUIC）指纹
-	surfBrowserProfile SurfBrowserProfile // Surf 浏览器+版本指纹
-	surfClose          bool               // 是否强制短连接（Connection: close）
-	surfOS             SurfOS             // Surf 操作系统指纹
+    // 默认 Surf 指纹配置
+    http3              bool               // 是否启用 HTTP/3（QUIC）指纹
+    surfBrowserProfile SurfBrowserProfile // Surf 浏览器+版本指纹
+    surfClose          bool               // 是否强制短连接（Connection: close）
+    surfOS             SurfOS             // Surf 操作系统指纹
+    disableHTTP2       bool
 }
 
 // SetHTTP3 启用或关闭 HTTP/3（QUIC）指纹,还没成熟，不支持代理
@@ -73,8 +74,12 @@ func (req *Request) SetSurfClose(enable bool) {
 
 // SetSurfOS 使用枚举设置操作系统（Windows/Android/iOS/MacOS/Linux/Random 等）
 func (req *Request) SetSurfOS(kind SurfOS) {
-	req.surfOS = kind
-	req.UserAgent = req.GetSurfUserAgent()
+    req.surfOS = kind
+    req.UserAgent = req.GetSurfUserAgent()
+}
+
+func (req *Request) SetDisableHTTP2(enable bool) {
+    req.disableHTTP2 = enable
 }
 
 func (req *Request) Cancel() {
@@ -101,11 +106,11 @@ func (req *Request) CancelAll() {
 
 // defaultRequestOptions 默认配置参数
 func defaultRequest() *Request {
-	req := Request{
-		UserAgent:     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-		Verify:        false,
-		HttpProxyAuto: false,
-	}
+    req := Request{
+        UserAgent:     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+        Verify:        false,
+        HttpProxyAuto: false,
+    }
 
 	// 为该 Request 创建一个父级可取消的上下文，以便 CancelAll 统一取消
 	base, baseCancel := context.WithCancelCause(context.Background())
@@ -123,9 +128,10 @@ func defaultRequest() *Request {
 	// 默认禁用 Surf 模式，需通过 SetSurfBrowserProfile 显式启用
 	req.surfBrowserProfile = SurfBrowserDisabled
 	// Surf 相关默认值
-	req.http3 = false
-	req.surfClose = true // Surf 模式默认短连接，更可控
-	req.surfOS = SurfOSDefault
+    req.http3 = false
+    req.surfClose = true // Surf 模式默认短连接，更可控
+    req.surfOS = SurfOSDefault
+    req.disableHTTP2 = false
 
 	return &req
 }

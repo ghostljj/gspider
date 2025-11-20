@@ -263,6 +263,9 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 
 	// Surf 模式下尽可能绑定本地 IP 与 DialContext（仅在 *http.Transport 下生效；HTTP/3 不适用）
 	if tr, ok := httpClient.Transport.(*http.Transport); ok {
+		if req.disableHTTP2 {
+			tr.TLSNextProto = make(map[string]func(authority string, c *tls.Conn) http.RoundTripper)
+		}
 		// 若用户要求强制短连接，在传输层禁用 Keep-Alive
 		if req.surfClose {
 			tr.DisableKeepAlives = true
