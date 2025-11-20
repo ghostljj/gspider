@@ -1,20 +1,20 @@
 package gspider
 
 import (
-    "bufio"
-    "context"
-    "crypto/tls"
-    "encoding/base64"
-    "fmt"
-    "net"
-    "net/http"
-    "net/url"
-    "os"
-    "strings"
-    "time"
+	"bufio"
+	"context"
+	"crypto/tls"
+	"encoding/base64"
+	"fmt"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
+	"strings"
+	"time"
 
-    "github.com/enetx/surf"
-    "golang.org/x/net/proxy"
+	"github.com/enetx/surf"
+	"golang.org/x/net/proxy"
 )
 
 // —— Surf 枚举类型：更稳妥的系统与浏览器版本设置 ——
@@ -276,54 +276,53 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 		}
 	}
 
-    // Surf 模式下尽可能绑定本地 IP、设置代理并覆盖 DialContext（仅在 *http.Transport 下生效；HTTP/3 不适用）
-    if tr, ok := httpClient.Transport.(*http.Transport); ok {
-        // 若用户要求强制短连接，在传输层禁用 Keep-Alive
-        if req.surfClose {
-            tr.DisableKeepAlives = true
-        }
-        // 应用握手与响应头等待超时（Surf 下可用时）
-        if rp.TLSHandshakeTimeout > 0 {
-            tr.TLSHandshakeTimeout = time.Duration(rp.TLSHandshakeTimeout) * time.Second
-        }
-        if rp.ResponseHeaderTimeout > 0 {
-            tr.ResponseHeaderTimeout = time.Duration(rp.ResponseHeaderTimeout) * time.Second
-        }
-        if rp.ExpectContinueTimeout > 0 {
-            tr.ExpectContinueTimeout = time.Duration(rp.ExpectContinueTimeout) * time.Second
-        }
-        if rp.IdleConnTimeout > 0 {
-            tr.IdleConnTimeout = time.Duration(rp.IdleConnTimeout) * time.Second
-        }
-        baseDialer := &net.Dialer{
-            Timeout:   time.Duration(rp.Timeout) * time.Second,
-            KeepAlive: time.Duration(rp.KeepAliveTimeout) * time.Second,
-        }
-        if len(req.LocalIP) > 0 {
-            var localTCPAddr *net.TCPAddr
-            if isIPAddress(req.LocalIP) {
-                ip := net.ParseIP(req.LocalIP)
-                if ip == nil {
-                    res.resBytes = []byte(fmt.Sprintf("无效的IP地址: %s", req.LocalIP))
-                    res.err = fmt.Errorf("无效的IP地址: %s", req.LocalIP)
-                    return nil
-                }
-                localTCPAddr = &net.TCPAddr{IP: ip, Port: 0}
-            } else {
-                addr, err := net.ResolveIPAddr("ip4", req.LocalIP)
-                if err != nil {
-                    addr, err = net.ResolveIPAddr("ip6", req.LocalIP)
-                    if err != nil {
-                        res.resBytes = []byte(fmt.Sprintf("域名解析失败: %v", err))
-                        res.err = err
-                        return nil
-                    }
-                }
-                localTCPAddr = &net.TCPAddr{IP: addr.IP, Port: 0}
-            }
-            baseDialer.LocalAddr = localTCPAddr
-        }
-
+	// Surf 模式下尽可能绑定本地 IP、设置代理并覆盖 DialContext（仅在 *http.Transport 下生效；HTTP/3 不适用）
+	if tr, ok := httpClient.Transport.(*http.Transport); ok {
+		// 若用户要求强制短连接，在传输层禁用 Keep-Alive
+		if req.surfClose {
+			tr.DisableKeepAlives = true
+		}
+		// 应用握手与响应头等待超时（Surf 下可用时）
+		if rp.TLSHandshakeTimeout > 0 {
+			tr.TLSHandshakeTimeout = time.Duration(rp.TLSHandshakeTimeout) * time.Second
+		}
+		if rp.ResponseHeaderTimeout > 0 {
+			tr.ResponseHeaderTimeout = time.Duration(rp.ResponseHeaderTimeout) * time.Second
+		}
+		if rp.ExpectContinueTimeout > 0 {
+			tr.ExpectContinueTimeout = time.Duration(rp.ExpectContinueTimeout) * time.Second
+		}
+		if rp.IdleConnTimeout > 0 {
+			tr.IdleConnTimeout = time.Duration(rp.IdleConnTimeout) * time.Second
+		}
+		baseDialer := &net.Dialer{
+			Timeout:   time.Duration(rp.Timeout) * time.Second,
+			KeepAlive: time.Duration(rp.KeepAliveTimeout) * time.Second,
+		}
+		if len(req.LocalIP) > 0 {
+			var localTCPAddr *net.TCPAddr
+			if isIPAddress(req.LocalIP) {
+				ip := net.ParseIP(req.LocalIP)
+				if ip == nil {
+					res.resBytes = []byte(fmt.Sprintf("无效的IP地址: %s", req.LocalIP))
+					res.err = fmt.Errorf("无效的IP地址: %s", req.LocalIP)
+					return nil
+				}
+				localTCPAddr = &net.TCPAddr{IP: ip, Port: 0}
+			} else {
+				addr, err := net.ResolveIPAddr("ip4", req.LocalIP)
+				if err != nil {
+					addr, err = net.ResolveIPAddr("ip6", req.LocalIP)
+					if err != nil {
+						res.resBytes = []byte(fmt.Sprintf("域名解析失败: %v", err))
+						res.err = err
+						return nil
+					}
+				}
+				localTCPAddr = &net.TCPAddr{IP: addr.IP, Port: 0}
+			}
+			baseDialer.LocalAddr = localTCPAddr
+		}
 
 		tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
 			// 统一代理选择：优先 Socks5，其次显式 HttpProxyInfo，最后环境变量
@@ -358,29 +357,42 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 							auth = "Proxy-Authorization: Basic " + token + "\r\n"
 						}
 					}
-					_, err = fmt.Fprintf(conn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n%sProxy-Connection: keep-alive\r\nConnection: keep-alive\r\n\r\n", addr, addr, auth)
-					if err != nil {
-						_ = conn.Close()
-						return nil, err
-					}
-					br := bufio.NewReader(conn)
-					statusLine, err := br.ReadString('\n')
-					if err != nil {
-						_ = conn.Close()
-						return nil, err
-					}
-					if !strings.Contains(statusLine, "200") {
-						_ = conn.Close()
-						return nil, fmt.Errorf("proxy CONNECT failed: %s", strings.TrimSpace(statusLine))
-					}
-					for {
-						line, err := br.ReadString('\n')
+					tryConnect := func(headerHost string, keepAlive bool) (net.Conn, *bufio.Reader, error) {
+						if keepAlive {
+							_, err = fmt.Fprintf(conn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n%sProxy-Connection: keep-alive\r\nConnection: keep-alive\r\n\r\n", addr, headerHost, auth)
+						} else {
+							_, err = fmt.Fprintf(conn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n%sProxy-Connection: close\r\nConnection: close\r\n\r\n", addr, headerHost, auth)
+						}
 						if err != nil {
+							return nil, nil, err
+						}
+						br := bufio.NewReader(conn)
+						statusLine, err := br.ReadString('\n')
+						if err != nil {
+							return nil, nil, err
+						}
+						if !strings.Contains(statusLine, "200") {
+							return nil, nil, fmt.Errorf("proxy CONNECT failed: %s", strings.TrimSpace(statusLine))
+						}
+						for {
+							line, err := br.ReadString('\n')
+							if err != nil {
+								return nil, nil, err
+							}
+							if line == "\r\n" {
+								break
+							}
+						}
+						return conn, br, nil
+					}
+					hostOnly := u.Hostname()
+					if hostOnly == "" {
+						hostOnly = addr
+					}
+					if _, _, err = tryConnect(hostOnly, true); err != nil {
+						if _, _, err = tryConnect(addr, false); err != nil {
 							_ = conn.Close()
 							return nil, err
-						}
-						if line == "\r\n" {
-							break
 						}
 					}
 					if rp.TcpDelay > 0 {
