@@ -1,24 +1,24 @@
 package gspider
 
 import (
-    "bytes"
-    "compress/flate"
-    "compress/gzip"
-    "compress/zlib"
-    "context"
-    "crypto/tls"
-    "encoding/base64"
-    "fmt"
-    "io"
-    "net"
-    "net/http"
-    "net/url"
-    "strings"
-    "sync/atomic"
-    "time"
+	"bytes"
+	"compress/flate"
+	"compress/gzip"
+	"compress/zlib"
+	"context"
+	"crypto/tls"
+	"encoding/base64"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"net/url"
+	"strings"
+	"sync/atomic"
+	"time"
 
-    "github.com/andybalholm/brotli"
-    "golang.org/x/net/proxy"
+	"github.com/andybalholm/brotli"
+	"golang.org/x/net/proxy"
 )
 
 //--------------------------------------------------------------------------------------------------------------
@@ -340,7 +340,7 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	// 若启用了 Surf，则避免覆盖其 Transport 以保留指纹配置
 	// 否则，按现有逻辑构建 Transport
 
-    // 非 Surf 模式：不再支持 HTTP/3
+	// 非 Surf 模式：不再支持 HTTP/3
 
 	ts := &http.Transport{}
 	if rp.IdleConnTimeout > 0 {
@@ -421,6 +421,7 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 			ts.Proxy = http.ProxyFromEnvironment
 		}
 		if len(req.HttpProxyInfo) > 0 {
+			//https://user:pass@host:port
 			httpProxyInfoOK = req.HttpProxyInfo
 		}
 
@@ -447,6 +448,7 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 			return conn, nil
 		}
 		if len(req.Socks5Address) > 0 { //SOCKS5 代理设置
+			//socks5://user:pass@host:port
 			var Socks5Auth *proxy.Auth
 			if len(req.Socks5User) > 0 {
 				Socks5Auth = &proxy.Auth{User: req.Socks5User, Password: req.Socks5Pass}
@@ -493,10 +495,10 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 			}
 		}
 	}
-    // 非 Surf 模式（Request.surfBrowserProfile 为 Disabled）下使用自定义 *http.Transport
-    if req.surfBrowserProfile == SurfBrowserDisabled {
-        httpClient.Transport = ts
-    }
+	// 非 Surf 模式（Request.surfBrowserProfile 为 Disabled）下使用自定义 *http.Transport
+	if req.surfBrowserProfile == SurfBrowserDisabled {
+		httpClient.Transport = ts
+	}
 
 	//设置重定向次数 默认重定向10次
 	if rp.RedirectCount > 0 {

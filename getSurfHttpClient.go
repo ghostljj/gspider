@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -229,18 +228,12 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 
 	// 代理映射：优先 SOCKS5，其次显式 HTTP(S) 代理，最后环境代理
 	if len(req.Socks5Address) > 0 {
-		proxyStr := "socks5://"
-		if len(req.Socks5User) > 0 {
-			proxyStr += url.UserPassword(req.Socks5User, req.Socks5Pass).String() + "@"
-		}
-		proxyStr += req.Socks5Address
+		//socks5://user:pass@host:port
+		proxyStr := strings.TrimSpace(req.Socks5Address)
 		b = b.Proxy(proxyStr)
 	} else if len(req.HttpProxyInfo) > 0 {
-		proxyStr := req.HttpProxyInfo
-		lower := strings.ToLower(proxyStr)
-		if !strings.HasPrefix(lower, "http://") && !strings.HasPrefix(lower, "https://") && !strings.HasPrefix(lower, "socks5://") {
-			proxyStr = "http://" + proxyStr
-		}
+		//https://user:pass@host:port
+		proxyStr := strings.TrimSpace(req.HttpProxyInfo)
 		b = b.Proxy(proxyStr)
 	} else if req.HttpProxyAuto {
 		var envProxy string
