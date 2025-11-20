@@ -513,6 +513,23 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 
 	//合并Header
 	{
+		clean := func(k string) string {
+			k = strings.TrimSpace(k)
+			k = strings.TrimRight(k, ":")
+			k = strings.ReplaceAll(k, "\r", "")
+			k = strings.ReplaceAll(k, "\n", "")
+			k = strings.ReplaceAll(k, " ", "")
+			if len(k) == 0 {
+				return ""
+			}
+			for i := 0; i < len(k); i++ {
+				c := k[i]
+				if !(c == '-' || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+					return ""
+				}
+			}
+			return k
+		}
 		sendHeader := make(map[string]string)
 		if len(rp.RefererUrl) > 0 {
 			sendHeader["referer"] = rp.RefererUrl
@@ -539,14 +556,16 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 			sendHeader[strings.ToLower(`content-type`)] = `application/x-www-form-urlencoded; charset=UTF-8`
 		}
 
-        for k, v := range rp.Header {
-            sk := strings.TrimSpace(k)
-            sk = strings.TrimRight(sk, ":")
-            if len(sk) == 0 || strings.Contains(sk, ":") {
-                continue
-            }
-            sendHeader[strings.ToLower(sk)] = v
-        }
+		for k, v := range rp.Header {
+			sk := clean(k)
+			if sk == "" {
+				if req.debug {
+					Log.Printf("debug: drop invalid header name=%q", k)
+				}
+				continue
+			}
+			sendHeader[strings.ToLower(sk)] = v
+		}
 		if ae, ok := sendHeader["accept-encoding"]; ok {
 			if strings.Contains(strings.ToLower(ae), "zstd") {
 				parts := strings.Split(ae, ",")
@@ -568,18 +587,20 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 				httpReq.Header.Set(k, v)
 			}
 		}
-        for k, vs := range rp.HeaderAdds {
-            sk := strings.TrimSpace(k)
-            sk = strings.TrimRight(sk, ":")
-            if len(sk) == 0 || strings.Contains(sk, ":") {
-                continue
-            }
-            lk := strings.ToLower(sk)
-            httpReq.Header.Del(lk)
-            for _, v := range vs {
-                httpReq.Header.Add(lk, v)
-            }
-        }
+		for k, vs := range rp.HeaderAdds {
+			sk := clean(k)
+			if sk == "" {
+				if req.debug {
+					Log.Printf("debug: drop invalid header-add name=%q", k)
+				}
+				continue
+			}
+			lk := strings.ToLower(sk)
+			httpReq.Header.Del(lk)
+			for _, v := range vs {
+				httpReq.Header.Add(lk, v)
+			}
+		}
 	}
 
 	httpClient.Jar = req.cookieJar
