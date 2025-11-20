@@ -513,23 +513,6 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 
 	//合并Header
 	{
-		clean := func(k string) string {
-			k = strings.TrimSpace(k)
-			k = strings.TrimRight(k, ":")
-			k = strings.ReplaceAll(k, "\r", "")
-			k = strings.ReplaceAll(k, "\n", "")
-			k = strings.ReplaceAll(k, " ", "")
-			if len(k) == 0 {
-				return ""
-			}
-			for i := 0; i < len(k); i++ {
-				c := k[i]
-				if !(c == '-' || (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
-					return ""
-				}
-			}
-			return k
-		}
 		sendHeader := make(map[string]string)
 		if len(rp.RefererUrl) > 0 {
 			sendHeader["referer"] = rp.RefererUrl
@@ -557,14 +540,7 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 		}
 
 		for k, v := range rp.Header {
-			sk := clean(k)
-			if sk == "" {
-				if req.debug {
-					Log.Printf("debug: drop invalid header name=%q", k)
-				}
-				continue
-			}
-			sendHeader[strings.ToLower(sk)] = v
+			sendHeader[strings.ToLower(k)] = v
 		}
 		if ae, ok := sendHeader["accept-encoding"]; ok {
 			if strings.Contains(strings.ToLower(ae), "zstd") {
@@ -588,28 +564,10 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 			}
 		}
 		for k, vs := range rp.HeaderAdds {
-			sk := clean(k)
-			if sk == "" {
-				if req.debug {
-					Log.Printf("debug: drop invalid header-add name=%q", k)
-				}
-				continue
-			}
-			lk := strings.ToLower(sk)
+			lk := strings.ToLower(k)
 			httpReq.Header.Del(lk)
 			for _, v := range vs {
 				httpReq.Header.Add(lk, v)
-			}
-		}
-
-		// 最终清理：删除任何包含非法字符或魔术键的头名，避免标准 net/http 拒绝
-		for k := range httpReq.Header {
-			kk := strings.TrimSpace(k)
-			if kk == "Header-Order:" || kk == "PHeader-Order:" || strings.Contains(kk, ":") || strings.ContainsAny(kk, "\r\n\t ") {
-				if req.debug {
-					Log.Printf("debug: drop magic/invalid header name=%q", k)
-				}
-				httpReq.Header.Del(k)
 			}
 		}
 	}
@@ -626,67 +584,75 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 		httpReq.ContentLength = int64(len(bytesPostData))
 	}
 
-    httpRes, err := httpClient.Do(httpReq)
-    if err != nil && req.surfBrowserProfile != SurfBrowserDisabled && (len(req.HttpProxyInfo) > 0 || req.HttpProxyAuto || len(req.Socks5Address) > 0) {
-        // 回退到非 Surf 的标准 Transport 以提升代理兼容性
-        tsFallback := &http.Transport{}
-        tsFallback.TLSHandshakeTimeout = time.Duration(rp.TLSHandshakeTimeout) * time.Second
-        tsFallback.ResponseHeaderTimeout = time.Duration(rp.ResponseHeaderTimeout) * time.Second
-        if rp.ExpectContinueTimeout > 0 {
-            tsFallback.ExpectContinueTimeout = time.Duration(rp.ExpectContinueTimeout) * time.Second
-        }
-        if req.Verify && req.tlsClientConfig != nil {
-            tsFallback.TLSClientConfig = req.tlsClientConfig
-        } else {
-            tsFallback.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-        }
-        // 代理设置（HTTP 优先，其次环境，其次 SOCKS5）
-        if len(req.HttpProxyInfo) > 0 {
-            if purl, e := url.Parse(strings.TrimSpace(req.HttpProxyInfo)); e == nil {
-                tsFallback.Proxy = http.ProxyURL(purl)
-            }
-        } else if req.HttpProxyAuto {
-            tsFallback.Proxy = http.ProxyFromEnvironment
-        }
-        // SOCKS5 代理（覆盖 DialContext）
-        if len(req.Socks5Address) > 0 {
-            var auth *proxy.Auth
-            if len(req.Socks5User) > 0 {
-                auth = &proxy.Auth{User: req.Socks5User, Password: req.Socks5Pass}
-            }
-            base := &net.Dialer{Timeout: time.Duration(rp.Timeout) * time.Second, KeepAlive: time.Duration(rp.KeepAliveTimeout) * time.Second}
-            if d, e := proxy.SOCKS5("tcp", req.Socks5Address, auth, base); e == nil {
-                if cd, ok := d.(proxy.ContextDialer); ok {
-                    tsFallback.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-                        c, e2 := cd.DialContext(ctx, network, addr)
-                        if e2 != nil { return nil, e2 }
-                        if rp.TcpDelay > 0 { time.Sleep(time.Duration(rp.TcpDelay) * time.Second) }
-                        return c, nil
-                    }
-                } else {
-                    tsFallback.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-                        c, e2 := d.Dial(network, addr)
-                        if e2 != nil { return nil, e2 }
-                        if rp.TcpDelay > 0 { time.Sleep(time.Duration(rp.TcpDelay) * time.Second) }
-                        return c, nil
-                    }
-                }
-            }
-        }
-        // 使用回退客户端重试一次
-        fbClient := &http.Client{Transport: tsFallback, Timeout: httpClient.Timeout}
-        reqClone := httpReq.Clone(httpReq.Context())
-        for k := range reqClone.Header {
-            kk := strings.TrimSpace(k)
-            if kk == "Header-Order:" || kk == "PHeader-Order:" || strings.Contains(kk, ":") || strings.ContainsAny(kk, "\r\n\t ") {
-                if req.debug {
-                    Log.Printf("debug: fallback drop magic/invalid header name=%q", k)
-                }
-                reqClone.Header.Del(k)
-            }
-        }
-        httpRes, err = fbClient.Do(reqClone)
-    }
+	httpRes, err := httpClient.Do(httpReq)
+	if err != nil && req.surfBrowserProfile != SurfBrowserDisabled && (len(req.HttpProxyInfo) > 0 || req.HttpProxyAuto || len(req.Socks5Address) > 0) {
+		// 回退到非 Surf 的标准 Transport 以提升代理兼容性
+		tsFallback := &http.Transport{}
+		tsFallback.TLSHandshakeTimeout = time.Duration(rp.TLSHandshakeTimeout) * time.Second
+		tsFallback.ResponseHeaderTimeout = time.Duration(rp.ResponseHeaderTimeout) * time.Second
+		if rp.ExpectContinueTimeout > 0 {
+			tsFallback.ExpectContinueTimeout = time.Duration(rp.ExpectContinueTimeout) * time.Second
+		}
+		if req.Verify && req.tlsClientConfig != nil {
+			tsFallback.TLSClientConfig = req.tlsClientConfig
+		} else {
+			tsFallback.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		}
+		// 代理设置（HTTP 优先，其次环境，其次 SOCKS5）
+		if len(req.HttpProxyInfo) > 0 {
+			if purl, e := url.Parse(strings.TrimSpace(req.HttpProxyInfo)); e == nil {
+				tsFallback.Proxy = http.ProxyURL(purl)
+			}
+		} else if req.HttpProxyAuto {
+			tsFallback.Proxy = http.ProxyFromEnvironment
+		}
+		// SOCKS5 代理（覆盖 DialContext）
+		if len(req.Socks5Address) > 0 {
+			var auth *proxy.Auth
+			if len(req.Socks5User) > 0 {
+				auth = &proxy.Auth{User: req.Socks5User, Password: req.Socks5Pass}
+			}
+			base := &net.Dialer{Timeout: time.Duration(rp.Timeout) * time.Second, KeepAlive: time.Duration(rp.KeepAliveTimeout) * time.Second}
+			if d, e := proxy.SOCKS5("tcp", req.Socks5Address, auth, base); e == nil {
+				if cd, ok := d.(proxy.ContextDialer); ok {
+					tsFallback.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+						c, e2 := cd.DialContext(ctx, network, addr)
+						if e2 != nil {
+							return nil, e2
+						}
+						if rp.TcpDelay > 0 {
+							time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
+						}
+						return c, nil
+					}
+				} else {
+					tsFallback.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+						c, e2 := d.Dial(network, addr)
+						if e2 != nil {
+							return nil, e2
+						}
+						if rp.TcpDelay > 0 {
+							time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
+						}
+						return c, nil
+					}
+				}
+			}
+		}
+		// 使用回退客户端重试一次
+		fbClient := &http.Client{Transport: tsFallback, Timeout: httpClient.Timeout}
+		reqClone := httpReq.Clone(httpReq.Context())
+		for k := range reqClone.Header {
+			kk := strings.TrimSpace(k)
+			if kk == "Header-Order:" || kk == "PHeader-Order:" || strings.Contains(kk, ":") || strings.ContainsAny(kk, "\r\n\t ") {
+				if req.debug {
+					Log.Printf("debug: fallback drop magic/invalid header name=%q", k)
+				}
+				reqClone.Header.Del(k)
+			}
+		}
+		httpRes, err = fbClient.Do(reqClone)
+	}
 
 	if httpRes != nil {
 		defer func() {
@@ -695,14 +661,14 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 		}()
 	}
 
-    if err != nil {
-        if req.debug {
-            Log.Printf("debug: request error url=%s err=%v", res.reqUrl, err)
-        }
-        res.resBytes = []byte(err.Error())
-        res.err = err
-        return res
-    }
+	if err != nil {
+		if req.debug {
+			Log.Printf("debug: request error url=%s err=%v", res.reqUrl, err)
+		}
+		res.resBytes = []byte(err.Error())
+		res.err = err
+		return res
+	}
 
 	if req.chHttpResponse != nil {
 		req.chHttpResponse <- httpRes

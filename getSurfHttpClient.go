@@ -136,29 +136,18 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 		b = imp.Chrome()
 	}
 
-    // 指纹版本（JA3/JA4）：
-    // 当设置了 HTTP 代理/环境代理且启用了禁用标志时，跳过 JA，改用 Impersonate + ForceHTTP1 以提升代理兼容性
-    useJA := true
-    if (len(strings.TrimSpace(req.HttpProxyInfo)) > 0 || req.HttpProxyAuto) && req.surfDisableJAOverProxy {
-        useJA = false
-        if req.debug {
-            Log.Printf("debug: disable JA over proxy, use Impersonate only")
-        }
-    }
-    var ja *surf.JA
-    if useJA {
-        ja = b.JA()
-    }
+    // 指纹版本（JA3/JA4）：始终启用 JA 指纹设置
+    ja := b.JA()
     switch req.surfBrowserProfile {
 	// —— Chrome 家族 ——
     case SurfBrowserChromeStable:
-        if useJA { b = ja.Chrome() }
+        b = ja.Chrome()
     case SurfBrowserChrome58:
-        if useJA { b = ja.Chrome58() }
+        b = ja.Chrome58()
     case SurfBrowserChrome62:
-        if useJA { b = ja.Chrome62() }
+        b = ja.Chrome62()
     case SurfBrowserChrome70:
-        if useJA { b = ja.Chrome70() }
+        b = ja.Chrome70()
 	case SurfBrowserChrome72:
 		b = ja.Chrome72()
 	case SurfBrowserChrome83:
@@ -174,21 +163,21 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 	case SurfBrowserChrome106:
 		b = ja.Chrome106()
     case SurfBrowserChrome142:
-        if useJA { b = ja.Chrome142() }
+        b = ja.Chrome142()
 	case SurfBrowserChrome120:
 		b = ja.Chrome120()
 	case SurfBrowserChrome120PQ:
 		b = ja.Chrome120PQ()
 	// —— Edge（按 Chrome 家族处理） ——
     case SurfBrowserEdgeStable:
-        if useJA { b = ja.Edge() }
+        b = ja.Edge()
 	case SurfBrowserEdge85:
 		b = ja.Edge85()
 	case SurfBrowserEdge106:
 		b = ja.Edge106()
 	// —— Firefox 家族 ——
     case SurfBrowserFirefoxStable:
-        if useJA { b = ja.Firefox() }
+        b = ja.Firefox()
 	case SurfBrowserFirefox55:
 		b = ja.Firefox55()
 	case SurfBrowserFirefox56:
@@ -213,14 +202,14 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 		b = ja.FirefoxPrivate144()
 	// —— Tor ——
     case SurfBrowserTor:
-        if useJA { b = ja.Tor() }
+        b = ja.Tor()
 	case SurfBrowserTorPrivate:
 		b = ja.TorPrivate()
 	// —— iOS/Safari 家族 ——
     case SurfBrowserSafari:
-        if useJA { b = ja.Safari() }
+        b = ja.Safari()
     case SurfBrowserIOS:
-        if useJA { b = ja.IOS() }
+        b = ja.IOS()
 	case SurfBrowserIOS11:
 		b = ja.IOS11()
 	case SurfBrowserIOS12:
@@ -231,14 +220,14 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 		b = ja.IOS14()
 	// —— Randomized ——
     case SurfBrowserRandomized:
-        if useJA { b = ja.Randomized() }
+        b = ja.Randomized()
 	case SurfBrowserRandomizedALPN:
 		b = ja.RandomizedALPN()
 	case SurfBrowserRandomizedNoALPN:
 		b = ja.RandomizedNoALPN()
 	// —— Android OkHttp ——
     case SurfBrowserAndroid:
-        if useJA { b = ja.Android() }
+        b = ja.Android()
 	}
 
 	// 当使用显式 HTTP 代理或环境代理时，强制使用 HTTP/1.1，避免代理对 HTTP/2 的兼容性问题
