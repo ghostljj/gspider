@@ -585,51 +585,55 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	}
 
     httpRes, err := httpClient.Do(httpReq)
-    if err != nil && req.surfBrowserProfile != SurfBrowserDisabled && len(req.HttpProxyInfo) > 0 {
-        if tr, ok := httpClient.Transport.(*http.Transport); ok {
-            p := strings.TrimSpace(req.HttpProxyInfo)
-            host := p
+    if err != nil && req.surfBrowserProfile != SurfBrowserDisabled && (len(req.HttpProxyInfo) > 0 || req.HttpProxyAuto || len(req.Socks5Address) > 0) {
+        // 回退到非 Surf 的标准 Transport 以提升代理兼容性
+        tsFallback := &http.Transport{}
+        tsFallback.TLSHandshakeTimeout = time.Duration(rp.TLSHandshakeTimeout) * time.Second
+        tsFallback.ResponseHeaderTimeout = time.Duration(rp.ResponseHeaderTimeout) * time.Second
+        if rp.ExpectContinueTimeout > 0 {
+            tsFallback.ExpectContinueTimeout = time.Duration(rp.ExpectContinueTimeout) * time.Second
+        }
+        if req.Verify && req.tlsClientConfig != nil {
+            tsFallback.TLSClientConfig = req.tlsClientConfig
+        } else {
+            tsFallback.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+        }
+        // 代理设置（HTTP 优先，其次环境，其次 SOCKS5）
+        if len(req.HttpProxyInfo) > 0 {
+            if purl, e := url.Parse(strings.TrimSpace(req.HttpProxyInfo)); e == nil {
+                tsFallback.Proxy = http.ProxyURL(purl)
+            }
+        } else if req.HttpProxyAuto {
+            tsFallback.Proxy = http.ProxyFromEnvironment
+        }
+        // SOCKS5 代理（覆盖 DialContext）
+        if len(req.Socks5Address) > 0 {
             var auth *proxy.Auth
-            if u, e := url.Parse(p); e == nil && len(u.Host) > 0 {
-                host = u.Host
-                if u.User != nil {
-                    user := u.User.Username()
-                    pass, _ := u.User.Password()
-                    if len(user) > 0 {
-                        auth = &proxy.Auth{User: user, Password: pass}
-                    }
-                }
+            if len(req.Socks5User) > 0 {
+                auth = &proxy.Auth{User: req.Socks5User, Password: req.Socks5Pass}
             }
             base := &net.Dialer{Timeout: time.Duration(rp.Timeout) * time.Second, KeepAlive: time.Duration(rp.KeepAliveTimeout) * time.Second}
-            d, e2 := proxy.SOCKS5("tcp", host, auth, base)
-            if e2 == nil {
-                tr.Proxy = nil
-                if ctxDialer, ok2 := d.(proxy.ContextDialer); ok2 {
-                    tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-                        c, e3 := ctxDialer.DialContext(ctx, network, addr)
-                        if e3 != nil {
-                            return nil, e3
-                        }
-                        if rp.TcpDelay > 0 {
-                            time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
-                        }
+            if d, e := proxy.SOCKS5("tcp", req.Socks5Address, auth, base); e == nil {
+                if cd, ok := d.(proxy.ContextDialer); ok {
+                    tsFallback.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+                        c, e2 := cd.DialContext(ctx, network, addr)
+                        if e2 != nil { return nil, e2 }
+                        if rp.TcpDelay > 0 { time.Sleep(time.Duration(rp.TcpDelay) * time.Second) }
                         return c, nil
                     }
                 } else {
-                    tr.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-                        c, e3 := d.Dial(network, addr)
-                        if e3 != nil {
-                            return nil, e3
-                        }
-                        if rp.TcpDelay > 0 {
-                            time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
-                        }
+                    tsFallback.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+                        c, e2 := d.Dial(network, addr)
+                        if e2 != nil { return nil, e2 }
+                        if rp.TcpDelay > 0 { time.Sleep(time.Duration(rp.TcpDelay) * time.Second) }
                         return c, nil
                     }
                 }
-                httpRes, err = httpClient.Do(httpReq)
             }
         }
+        // 使用回退客户端重试一次
+        fbClient := &http.Client{Transport: tsFallback, Timeout: httpClient.Timeout}
+        httpRes, err = fbClient.Do(httpReq)
     }
 
 	if httpRes != nil {
