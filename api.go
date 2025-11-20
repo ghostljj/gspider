@@ -539,9 +539,14 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 			sendHeader[strings.ToLower(`content-type`)] = `application/x-www-form-urlencoded; charset=UTF-8`
 		}
 
-		for k, v := range rp.Header {
-			sendHeader[strings.ToLower(k)] = v
-		}
+        for k, v := range rp.Header {
+            sk := strings.TrimSpace(k)
+            sk = strings.TrimRight(sk, ":")
+            if len(sk) == 0 || strings.Contains(sk, ":") {
+                continue
+            }
+            sendHeader[strings.ToLower(sk)] = v
+        }
 		if ae, ok := sendHeader["accept-encoding"]; ok {
 			if strings.Contains(strings.ToLower(ae), "zstd") {
 				parts := strings.Split(ae, ",")
@@ -563,13 +568,18 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 				httpReq.Header.Set(k, v)
 			}
 		}
-		for k, vs := range rp.HeaderAdds {
-			lk := strings.ToLower(k)
-			httpReq.Header.Del(lk)
-			for _, v := range vs {
-				httpReq.Header.Add(lk, v)
-			}
-		}
+        for k, vs := range rp.HeaderAdds {
+            sk := strings.TrimSpace(k)
+            sk = strings.TrimRight(sk, ":")
+            if len(sk) == 0 || strings.Contains(sk, ":") {
+                continue
+            }
+            lk := strings.ToLower(sk)
+            httpReq.Header.Del(lk)
+            for _, v := range vs {
+                httpReq.Header.Add(lk, v)
+            }
+        }
 	}
 
 	httpClient.Jar = req.cookieJar
