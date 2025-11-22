@@ -643,7 +643,7 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 			}
 		}
 		// 使用回退客户端重试一次
-		fbClient := &http.Client{Transport: tsFallback, Timeout: httpClient.Timeout}
+		fbClient := &http.Client{Transport: tsFallback, Timeout: httpClient.Timeout, Jar: req.cookieJar}
 		reqClone := httpReq.Clone(httpReq.Context())
 		for k := range reqClone.Header {
 			kk := strings.TrimSpace(k)
