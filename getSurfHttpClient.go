@@ -230,22 +230,7 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
         b = ja.Android()
 	}
 
-	// 当使用显式 HTTP 代理或环境代理时，强制使用 HTTP/1.1，避免代理对 HTTP/2 的兼容性问题
-	if len(strings.TrimSpace(req.HttpProxyInfo)) > 0 || req.HttpProxyAuto {
-		if u, err := url.Parse(strings.TrimSpace(req.HttpProxyInfo)); err == nil {
-			if u == nil || u.Scheme == "" || strings.HasPrefix(strings.ToLower(u.Scheme), "http") {
-				b = b.ForceHTTP1()
-				if req.debug {
-					Log.Printf("debug: force http/1.1 due to http proxy: %s", strings.TrimSpace(req.HttpProxyInfo))
-				}
-			}
-		} else if req.HttpProxyAuto {
-			b = b.ForceHTTP1()
-			if req.debug {
-				Log.Printf("debug: force http/1.1 due to environment proxy")
-			}
-		}
-	}
+	// 保留默认 ALPN 由 Surf 配置，代理场景不再强制 HTTP/1.1
 
 	// 代理映射：优先 SOCKS5，其次显式 HTTP(S) 代理，最后环境代理
 	if len(req.Socks5Address) > 0 {
