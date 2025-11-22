@@ -6,7 +6,6 @@ import (
 	"compress/gzip"
 	"compress/zlib"
 	"context"
-	"crypto/tls"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -18,7 +17,6 @@ import (
 	"time"
 
 	"github.com/andybalholm/brotli"
-	"golang.org/x/net/proxy"
 )
 
 //--------------------------------------------------------------------------------------------------------------
@@ -335,169 +333,9 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 		}
 	}
 
-	// 说明：此处使用零值 Transport（&http.Transport{}）。未显式设置的字段遵循"零值语义"，
-	// 与 http.DefaultTransport 的常用默认不同：例如 IdleConnTimeout=0 表示不主动回收空闲连接。
-	// 若启用了 Surf，则避免覆盖其 Transport 以保留指纹配置
-	// 否则，按现有逻辑构建 Transport
-
-	// 非 Surf 模式：不再支持 HTTP/3
-
-	ts := &http.Transport{}
-	if rp.IdleConnTimeout > 0 {
-		ts.IdleConnTimeout = time.Duration(rp.IdleConnTimeout) * time.Second // 空闲连接的最长保持时间（仅当 >0 时设置；=0 保持零值，不主动回收）
-	}
-	ts.TLSHandshakeTimeout = time.Duration(rp.TLSHandshakeTimeout) * time.Second     // TLS 握手超时
-	ts.ResponseHeaderTimeout = time.Duration(rp.ResponseHeaderTimeout) * time.Second // 响应头等待超时
-	// ExpectContinueTimeout：仅在请求包含 Expect: 100-continue 时生效；
-	// 设为 0 表示不设置（保持零值：不等待 100-continue，直接发送请求体）。
-	if rp.ExpectContinueTimeout > 0 {
-		ts.ExpectContinueTimeout = time.Duration(rp.ExpectContinueTimeout) * time.Second
-	}
-
-	// 新增：禁用 HTTP/2，强制使用 HTTP/1.1
-	//ts.TLSNextProto = make(map[string]func(authority string, c *tls.Conn) http.RoundTripper)
-	//超时设置  代理设置
-	{
-		// Dialer 时间设置：Timeout=TCP 连接超时；KeepAlive=TCP 探测间隔
-		netDialer := &net.Dialer{
-			Timeout:   time.Duration(rp.Timeout) * time.Second,          // TCP 连接超时
-			KeepAlive: time.Duration(rp.KeepAliveTimeout) * time.Second, // TCP KeepAlive 间隔
-		}
-
-		if len(req.LocalIP) > 0 { //设置本地网络ip
-
-			//var localAddr *net.IPAddr
-			var localTCPAddr *net.TCPAddr
-			if isIPAddress(req.LocalIP) {
-				// 直接解析IP
-				ip := net.ParseIP(req.LocalIP)
-				if ip == nil {
-					res.resBytes = []byte(fmt.Sprintf("无效的IP地址: %s", req.LocalIP))
-					res.err = fmt.Errorf("无效的IP地址: %s", req.LocalIP)
-					return res
-				}
-				localTCPAddr = &net.TCPAddr{IP: ip, Port: 0}
-			} else {
-				// 解析域名
-				addr, err := net.ResolveIPAddr("ip4", req.LocalIP) // 指定IPv4
-				if err != nil {
-					addr, err = net.ResolveIPAddr("ip6", req.LocalIP)
-					if err != nil {
-						res.resBytes = []byte(fmt.Sprintf("域名解析失败: %v", err))
-						res.err = err
-						return res
-					}
-				}
-				localTCPAddr = &net.TCPAddr{IP: addr.IP, Port: 0}
-			}
-			netDialer.LocalAddr = localTCPAddr
-		}
-
-		if req.Verify && req.tlsClientConfig != nil {
-			ts.TLSClientConfig = req.tlsClientConfig
-		} else {
-			ts.TLSClientConfig = &tls.Config{
-				InsecureSkipVerify: true,
-			} //跳过证书验证
-		}
-
-		var httpProxyInfoOK = ""
-		if req.HttpProxyAuto {
-			//httpProxy := os.Getenv("http_proxy")
-			//httpProxys := os.Getenv("https_proxy")
-			//httpProxy = strings.ReplaceAll(httpProxy, "\n", "")
-			//httpProxys = strings.ReplaceAll(httpProxys, "\n", "")
-			//if len(httpProxy) > 0 {
-			//	httpProxyInfoOK = httpProxy
-			//	if strings.Index(httpProxyInfoOK, "http") == -1 {
-			//		httpProxyInfoOK = "http://" + httpProxyInfoOK
-			//	}
-			//} else if len(httpProxys) > 0 {
-			//	httpProxyInfoOK = httpProxys
-			//	if strings.Index(httpProxyInfoOK, "http") == -1 {
-			//		httpProxyInfoOK = "https://" + httpProxyInfoOK
-			//	}
-			//}
-			ts.Proxy = http.ProxyFromEnvironment
-		}
-		if len(req.HttpProxyInfo) > 0 {
-			//https://user:pass@host:port
-			httpProxyInfoOK = req.HttpProxyInfo
-		}
-
-		if len(httpProxyInfoOK) > 0 { //http 代理设置
-			proxyUrl, err := url.Parse(httpProxyInfoOK)
-			if err != nil {
-				res.err = err
-				res.resBytes = []byte(err.Error())
-				return res
-			}
-
-			ts.Proxy = http.ProxyURL(proxyUrl)
-		}
-		ts.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-			// 使用已配置的 netDialer 建立连接
-			conn, err := netDialer.DialContext(ctx, network, addr)
-			if err != nil {
-				return nil, err
-			}
-
-			if rp.TcpDelay > 0 {
-				time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
-			}
-			return conn, nil
-		}
-		if len(req.Socks5Address) > 0 { //SOCKS5 代理设置
-			//socks5://user:pass@host:port
-			var Socks5Auth *proxy.Auth
-			if len(req.Socks5User) > 0 {
-				Socks5Auth = &proxy.Auth{User: req.Socks5User, Password: req.Socks5Pass}
-			}
-
-			// 创建基于 baseDialContext 的 SOCKS5 代理
-			var netDialerNew proxy.Dialer
-			netDialerNew, err = proxy.SOCKS5("tcp", req.Socks5Address,
-				Socks5Auth,
-				netDialer,
-			)
-
-			if err != nil {
-				res.resBytes = []byte(err.Error())
-				res.err = err
-				return res
-			}
-
-			// 类型断言，检查是否实现了 ContextDialer 接口
-			if ctxDialer, ok := netDialerNew.(proxy.ContextDialer); ok {
-				// 使用支持上下文的 DialContext 方法
-				ts.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-					conn, err := ctxDialer.DialContext(ctx, network, addr)
-					if err != nil {
-						return nil, err
-					}
-					if rp.TcpDelay > 0 {
-						time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
-					}
-					return conn, nil
-				}
-			} else {
-				// 回退到不支持上下文的 Dial 方法
-				ts.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-					conn, err := netDialerNew.Dial(network, addr)
-					if err != nil {
-						return nil, err
-					}
-					if rp.TcpDelay > 0 {
-						time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
-					}
-					return conn, nil
-				}
-			}
-		}
-	}
 	// 非 Surf 模式（Request.surfBrowserProfile 为 Disabled）下使用自定义 *http.Transport
 	if req.surfBrowserProfile == SurfBrowserDisabled {
-		httpClient.Transport = ts
+		httpClient.Transport = buildTransport(req, rp)
 	}
 
 	//设置重定向次数 默认重定向10次
@@ -528,8 +366,10 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 		for k, v := range req.defaultHeaderTemplate {
 			sendHeader[strings.ToLower(k)] = v
 		}
-
-		sendHeader[strings.ToLower(`accept-encoding`)] = `gzip, deflate, br`
+		// 仅在未启用 Surf 时设置默认 Accept-Encoding，避免干扰指纹头
+		if req.surfBrowserProfile == SurfBrowserDisabled {
+			sendHeader[strings.ToLower(`accept-encoding`)] = `gzip, deflate, br`
+		}
 		if rp.IsGetJson == 1 { //接收json
 			sendHeader[strings.ToLower(`accept`)] = `application/json, text/plain, */*`
 		}
@@ -575,7 +415,7 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	httpClient.Jar = req.cookieJar
 	// 连接关闭策略：仅在非 Surf 模式下使用请求级 Connection: close；
 	// Surf 模式下改由传输层禁用 keep-alive 控制连接复用
-	if req.surfBrowserProfile == SurfBrowserDisabled || req.surfClose {
+	if req.surfBrowserProfile == SurfBrowserDisabled && req.surfClose {
 		httpReq.Close = true
 	}
 
@@ -586,62 +426,8 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 
 	httpRes, err := httpClient.Do(httpReq)
 	if err != nil && req.surfBrowserProfile != SurfBrowserDisabled && (len(req.HttpProxyInfo) > 0 || req.HttpProxyAuto || len(req.Socks5Address) > 0) {
-		// 回退到非 Surf 的标准 Transport 以提升代理兼容性
-        tsFallback := &http.Transport{}
-        tsFallback.TLSHandshakeTimeout = time.Duration(rp.TLSHandshakeTimeout) * time.Second
-        tsFallback.ResponseHeaderTimeout = time.Duration(rp.ResponseHeaderTimeout) * time.Second
-        if rp.ExpectContinueTimeout > 0 {
-            tsFallback.ExpectContinueTimeout = time.Duration(rp.ExpectContinueTimeout) * time.Second
-        }
-        if rp.IdleConnTimeout > 0 {
-            tsFallback.IdleConnTimeout = time.Duration(rp.IdleConnTimeout) * time.Second
-        }
-		if req.Verify && req.tlsClientConfig != nil {
-			tsFallback.TLSClientConfig = req.tlsClientConfig
-		} else {
-			tsFallback.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-		}
-		// 代理设置（HTTP 优先，其次环境，其次 SOCKS5）
-		if len(req.HttpProxyInfo) > 0 {
-			if purl, e := url.Parse(strings.TrimSpace(req.HttpProxyInfo)); e == nil {
-				tsFallback.Proxy = http.ProxyURL(purl)
-			}
-		} else if req.HttpProxyAuto {
-			tsFallback.Proxy = http.ProxyFromEnvironment
-		}
-		// SOCKS5 代理（覆盖 DialContext）
-		if len(req.Socks5Address) > 0 {
-			var auth *proxy.Auth
-			if len(req.Socks5User) > 0 {
-				auth = &proxy.Auth{User: req.Socks5User, Password: req.Socks5Pass}
-			}
-			base := &net.Dialer{Timeout: time.Duration(rp.Timeout) * time.Second, KeepAlive: time.Duration(rp.KeepAliveTimeout) * time.Second}
-			if d, e := proxy.SOCKS5("tcp", req.Socks5Address, auth, base); e == nil {
-				if cd, ok := d.(proxy.ContextDialer); ok {
-					tsFallback.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-						c, e2 := cd.DialContext(ctx, network, addr)
-						if e2 != nil {
-							return nil, e2
-						}
-						if rp.TcpDelay > 0 {
-							time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
-						}
-						return c, nil
-					}
-				} else {
-					tsFallback.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-						c, e2 := d.Dial(network, addr)
-						if e2 != nil {
-							return nil, e2
-						}
-						if rp.TcpDelay > 0 {
-							time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
-						}
-						return c, nil
-					}
-				}
-			}
-		}
+		// 回退到非 Surf 的标准 Transport（统一构建）以提升代理兼容性
+		tsFallback := buildTransport(req, rp)
 		// 使用回退客户端重试一次
 		fbClient := &http.Client{Transport: tsFallback, Timeout: httpClient.Timeout, Jar: req.cookieJar}
 		reqClone := httpReq.Clone(httpReq.Context())
@@ -692,17 +478,18 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	//解压流 gzip deflate
 	ContentEncoding := httpRes.Header.Get("Content-Encoding")
 	{
-		switch ContentEncoding {
-		case "br":
+		enc := strings.ToLower(strings.TrimSpace(ContentEncoding))
+		switch enc {
+		case "br", "brotli":
 			reader = brotli.NewReader(httpRes.Body)
-		case "gzip":
+		case "gzip", "x-gzip":
 			reader, err = gzip.NewReader(httpRes.Body)
 			if err != nil {
 				res.resBytes = []byte(err.Error())
 				res.err = err
 				return res
 			}
-		case "deflate":
+		case "deflate", "x-deflate", "zlib":
 			var zr io.ReadCloser
 			zr, err = zlib.NewReader(httpRes.Body)
 			if err == nil {

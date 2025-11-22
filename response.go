@@ -1,12 +1,12 @@
 package gspider
 
 import (
-	"bytes"
-	"net/http"
-	"strings"
+    "bytes"
+    "net/http"
+    "strings"
 
-	"github.com/axgle/mahonia"
-	"github.com/saintfish/chardet"
+    "github.com/axgle/mahonia"
+    htmlcharset "golang.org/x/net/html/charset"
 )
 
 // HttpInfo  返回信息结构
@@ -118,44 +118,48 @@ func (res *Response) GetErr() error {
 
 // GetContent 获取 响应 内容
 func (res *Response) GetContent() string {
-	// 处理BOM
-	bodyByte := res.resBytes
-	if bytes.HasPrefix(bodyByte, []byte("\xef\xbb\xbf")) { // UTF-8 BOM
-		bodyByte = bytes.TrimPrefix(bodyByte, []byte("\xef\xbb\xbf"))
-	} else if bytes.HasPrefix(bodyByte, []byte("\xff\xfe")) { // UTF-16 LE BOM
-		bodyByte = bytes.TrimPrefix(bodyByte, []byte("\xff\xfe"))
-	} else if bytes.HasPrefix(bodyByte, []byte("\xfe\xff")) { // UTF-16 BE BOM
-		bodyByte = bytes.TrimPrefix(bodyByte, []byte("\xfe\xff"))
-	}
+    bodyByte := res.resBytes
+    if bytes.HasPrefix(bodyByte, []byte("\xef\xbb\xbf")) {
+        bodyByte = bytes.TrimPrefix(bodyByte, []byte("\xef\xbb\xbf"))
+    } else if bytes.HasPrefix(bodyByte, []byte("\xff\xfe")) {
+        bodyByte = bytes.TrimPrefix(bodyByte, []byte("\xff\xfe"))
+    } else if bytes.HasPrefix(bodyByte, []byte("\xfe\xff")) {
+        bodyByte = bytes.TrimPrefix(bodyByte, []byte("\xfe\xff"))
+    }
 
-	bodyStr := string(bodyByte)
-	contentType := strings.ToLower(res.resHeader.Get("Content-Type"))
-	// 图片类型直接返回原始字节的字符串表示
-	if strings.Contains(contentType, "image/") {
-		return bodyStr
-	}
-	//自动/手动 编码
-	var charset string
-	if strings.ToLower(res.Encode) == "auto" {
-		autoEncode, err := chardet.NewTextDetector().DetectBest(res.resBytes)
-		if err == nil {
-			charset = autoEncode.Charset
-		} else {
-			res.err = err
-		}
-	} else {
-		charset = res.Encode
-	}
-
-	// 如果没有指定编码，默认使用 UTF-8
-	if charset == "" {
-		charset = "UTF-8"
-	}
-	encodeDec := mahonia.NewDecoder(charset)
-	if encodeDec != nil {
-		//在UTF-8字符转中，有可能会有一个BOM（字节顺序标记）这个字节顺序标记并不是必须的，有的 UTF-8 数据就是不带这个 BOM 的
-		bodyStr = encodeDec.ConvertString(bodyStr) //把文本转为 srcCode 例如 GB18030
-	}
-
-	return bodyStr
+    bodyStr := string(bodyByte)
+    contentType := strings.ToLower(res.resHeader.Get("Content-Type"))
+    if strings.Contains(contentType, "image/") {
+        return bodyStr
+    }
+    var charset string
+    if strings.ToLower(res.Encode) == "auto" {
+        cs := ""
+        if p := strings.Index(contentType, "charset="); p >= 0 {
+            cs = contentType[p+8:]
+            if q := strings.Index(cs, ";"); q >= 0 {
+                cs = cs[:q]
+            }
+            cs = strings.Trim(cs, " \t\r\n\"'")
+        }
+        if cs != "" {
+            charset = cs
+        } else {
+            _, name, _ := htmlcharset.DetermineEncoding(bodyByte, contentType)
+            charset = name
+        }
+    } else {
+        charset = res.Encode
+    }
+    if charset == "" {
+        charset = "UTF-8"
+    }
+    if strings.EqualFold(charset, "utf-8") || strings.EqualFold(charset, "utf8") {
+        return bodyStr
+    }
+    encodeDec := mahonia.NewDecoder(charset)
+    if encodeDec != nil {
+        bodyStr = encodeDec.ConvertString(bodyStr)
+    }
+    return bodyStr
 }

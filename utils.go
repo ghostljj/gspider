@@ -3,9 +3,9 @@ package gspider
 import (
 	"crypto/x509"
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -48,7 +48,7 @@ func GetCookieJson(strUrl, strCookie string) string {
 	return jsonCookies
 }
 
-//GetCookiesMap 获取Cook的map[string]string
+// GetCookiesMap 获取Cook的map[string]string
 func GetCookiesMap(cookies []*http.Cookie) *map[string]string {
 	mapCookies := make(map[string]string)
 	if cookies == nil {
@@ -60,9 +60,9 @@ func GetCookiesMap(cookies []*http.Cookie) *map[string]string {
 	return &mapCookies
 }
 
-//LoadCaFile 加载ca文件
+// LoadCaFile 加载ca文件
 func LoadCaFile(caFile string) *x509.CertPool {
-	byteCa, err := ioutil.ReadFile(caFile)
+	byteCa, err := os.ReadFile(caFile)
 	if err != nil {
 		Log.Fatal("loadCaFile: ", err)
 		return nil
@@ -70,7 +70,7 @@ func LoadCaFile(caFile string) *x509.CertPool {
 	return LoadCa(byteCa)
 }
 
-//LoadCa  加载ca字节
+// LoadCa  加载ca字节
 func LoadCa(byteCa []byte) *x509.CertPool {
 	pool := x509.NewCertPool()
 	pool.AppendCertsFromPEM(byteCa)

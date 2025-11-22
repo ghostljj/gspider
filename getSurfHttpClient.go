@@ -1,20 +1,21 @@
 package gspider
 
 import (
-	"bufio"
-	"context"
-	"crypto/tls"
-	"encoding/base64"
-	"fmt"
-	"net"
-	"net/http"
-	"net/url"
-	"os"
-	"strings"
-	"time"
+    "bufio"
+    "context"
+    "crypto/tls"
+    "encoding/base64"
+    "fmt"
+    "net"
+    "net/http"
+    "net/url"
+    "os"
+    "strings"
+    "time"
 
-	"github.com/enetx/surf"
-	"golang.org/x/net/proxy"
+    "github.com/enetx/surf"
+    "golang.org/x/net/proxy"
+    enhttp "github.com/enetx/http"
 )
 
 // —— Surf 枚举类型：更稳妥的系统与浏览器版本设置 ——
@@ -232,27 +233,42 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 
 	// 保留默认 ALPN 由 Surf 配置，代理场景不再强制 HTTP/1.1
 
-	// 代理映射：优先 SOCKS5，其次显式 HTTP(S) 代理，最后环境代理
-	if len(req.Socks5Address) > 0 {
-		//socks5://user:pass@host:port
-		proxyStr := strings.TrimSpace(req.Socks5Address)
-		b = b.Proxy(proxyStr)
-	} else if len(req.HttpProxyInfo) > 0 {
-		//https://user:pass@host:port
-		proxyStr := strings.TrimSpace(req.HttpProxyInfo)
-		b = b.Proxy(proxyStr)
-	} else if req.HttpProxyAuto {
-		var envProxy string
-		for _, key := range []string{"HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"} {
-			if val := os.Getenv(key); len(strings.TrimSpace(val)) > 0 {
-				envProxy = strings.TrimSpace(val)
-				break
-			}
-		}
-		if len(envProxy) > 0 {
-			b = b.Proxy(envProxy)
-		}
-	}
+    // 代理映射：优先 SOCKS5，其次显式 HTTP(S) 代理，最后环境代理
+    if len(req.Socks5Address) > 0 {
+        //socks5://user:pass@host:port
+        proxyStr := strings.TrimSpace(req.Socks5Address)
+        b = b.Proxy(proxyStr)
+    } else if len(req.HttpProxyInfo) > 0 {
+        //https://user:pass@host:port
+        proxyStr := strings.TrimSpace(req.HttpProxyInfo)
+        b = b.Proxy(proxyStr)
+        // 若 HTTP 代理包含认证信息，设置 CONNECT 阶段的 Proxy-Authorization 头，提升隧道建立成功率
+        if u, err := url.Parse(proxyStr); err == nil && u != nil && len(u.User.Username()) > 0 {
+            user := u.User.Username()
+            pass, _ := u.User.Password()
+            token := base64.StdEncoding.EncodeToString([]byte(user + ":" + pass))
+            b = b.With(func(client *surf.Client) error {
+                if t, ok := client.GetTransport().(*enhttp.Transport); ok {
+                    if t.ProxyConnectHeader == nil {
+                        t.ProxyConnectHeader = make(enhttp.Header)
+                    }
+                    t.ProxyConnectHeader.Set("Proxy-Authorization", "Basic "+token)
+                }
+                return nil
+            })
+        }
+    } else if req.HttpProxyAuto {
+        var envProxy string
+        for _, key := range []string{"HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"} {
+            if val := os.Getenv(key); len(strings.TrimSpace(val)) > 0 {
+                envProxy = strings.TrimSpace(val)
+                break
+            }
+        }
+        if len(envProxy) > 0 {
+            b = b.Proxy(envProxy)
+        }
+    }
 	client := b.Build()
 	httpClient = client.Std()
 	// 尝试应用 mTLS/证书配置到标准客户端（若底层为 *http.Transport）
