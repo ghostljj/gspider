@@ -329,6 +329,7 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 				reqCtx,
 				req.ChUploaded,
 			)
+
 			return newReader, nil
 		}
 	}
