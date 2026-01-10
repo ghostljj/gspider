@@ -351,6 +351,7 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 			}
 			// 没有重定向不会执行，len(via)==1 就是第一次跳进入。选择是否跳
 			if len(via) >= rp.RedirectCount {
+
 				return http.ErrUseLastResponse //返回err就是，不跳
 			}
 			return nil //返回nil就是跳，
