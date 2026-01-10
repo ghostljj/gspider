@@ -16,7 +16,7 @@ func main() {
 	req := gs.Session()
 	req.SetHttpProxy(fmt.Sprintf("http://%s:%d", "127.0.0.1", 10808))
 	// Surf 模式下不要设置 req.UserAgent，UA 将由指纹档位生成
-	req.SetSurfBrowserProfile(gs.SurfBrowserChrome142)
+	req.SetSurfBrowserProfile(gs.SurfBrowserChrome143)
 	req.SetSurfOS(gs.SurfOSWindows)
 	// 直接读取与指纹一致的 UA（不发请求），用于插件传参或日志
 	fmt.Println("Fingerprint UA:", req.UserAgent)

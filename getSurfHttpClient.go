@@ -52,7 +52,7 @@ const (
 	SurfBrowserChrome106
 	SurfBrowserChrome120
 	SurfBrowserChrome120PQ
-	SurfBrowserChrome142
+	SurfBrowserChrome143
 	// Edge（按 Chrome 家族处理）
 	SurfBrowserEdgeStable
 	SurfBrowserEdge85
@@ -68,8 +68,8 @@ const (
 	SurfBrowserFirefox105
 	SurfBrowserFirefox120
 	SurfBrowserFirefox141
-	SurfBrowserFirefox144
-	SurfBrowserFirefoxPrivate144
+	SurfBrowserFirefox146
+	SurfBrowserFirefoxPrivate146
 	// Tor（按 Firefox 家族处理）
 	SurfBrowserTor
 	SurfBrowserTorPrivate
@@ -121,7 +121,7 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 	case SurfBrowserDefault,
 		SurfBrowserChromeStable, SurfBrowserChrome58, SurfBrowserChrome62, SurfBrowserChrome70, SurfBrowserChrome72,
 		SurfBrowserChrome83, SurfBrowserChrome87, SurfBrowserChrome96, SurfBrowserChrome100, SurfBrowserChrome102,
-		SurfBrowserChrome106, SurfBrowserChrome120, SurfBrowserChrome120PQ, SurfBrowserChrome142,
+		SurfBrowserChrome106, SurfBrowserChrome120, SurfBrowserChrome120PQ, SurfBrowserChrome143,
 		SurfBrowserEdgeStable, SurfBrowserEdge85, SurfBrowserEdge106,
 		SurfBrowserRandomized, SurfBrowserRandomizedALPN, SurfBrowserRandomizedNoALPN,
 		SurfBrowserSafari, SurfBrowserIOS, SurfBrowserIOS11, SurfBrowserIOS12, SurfBrowserIOS13, SurfBrowserIOS14,
@@ -130,9 +130,9 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 	// Firefox 家族（含 Tor）
 	case SurfBrowserFirefoxStable, SurfBrowserFirefox55, SurfBrowserFirefox56, SurfBrowserFirefox63, SurfBrowserFirefox65,
 		SurfBrowserFirefox99, SurfBrowserFirefox102, SurfBrowserFirefox105, SurfBrowserFirefox120,
-		SurfBrowserFirefox141, SurfBrowserFirefox144, SurfBrowserFirefoxPrivate144,
+		SurfBrowserFirefox141, SurfBrowserFirefox146, SurfBrowserFirefoxPrivate146,
 		SurfBrowserTor, SurfBrowserTorPrivate:
-		b = imp.FireFox()
+		b = imp.Firefox()
 	default:
 		b = imp.Chrome()
 	}
@@ -163,8 +163,8 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 		b = ja.Chrome102()
 	case SurfBrowserChrome106:
 		b = ja.Chrome106()
-	case SurfBrowserChrome142:
-		b = ja.Chrome142()
+	case SurfBrowserChrome143:
+		b = ja.Chrome143()
 	case SurfBrowserChrome120:
 		b = ja.Chrome120()
 	case SurfBrowserChrome120PQ:
@@ -197,15 +197,15 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 		b = ja.Firefox120()
 	case SurfBrowserFirefox141:
 		b = ja.Firefox141()
-	case SurfBrowserFirefox144:
-		b = ja.Firefox144()
-	case SurfBrowserFirefoxPrivate144:
-		b = ja.FirefoxPrivate144()
+	case SurfBrowserFirefox146:
+		b = ja.Firefox146()
+	case SurfBrowserFirefoxPrivate146:
+		b = ja.FirefoxPrivate146()
 		// —— Tor ——
 	case SurfBrowserTor:
-		b = ja.Tor()
+		b = ja.Firefox()
 	case SurfBrowserTorPrivate:
-		b = ja.TorPrivate()
+		b = ja.Firefox()
 		// —— iOS/Safari 家族 ——
 	case SurfBrowserSafari:
 		b = ja.Safari()
