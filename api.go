@@ -341,6 +341,14 @@ func (req *Request) sendByte(strMethod, strUrl string, bytesPostData []byte, rp 
 	//设置重定向次数 默认重定向10次
 	if rp.RedirectCount > 0 {
 		httpClient.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+			// 强行把上一个请求的 Cookie 传递给新请求（解决跨域丢失问题）
+			if len(via) > 0 {
+				lastReq := via[len(via)-1]
+				for _, c := range lastReq.Cookies() {
+					// 这里可以加个判断，避免重复或者覆盖
+					req.AddCookie(c)
+				}
+			}
 			// 没有重定向不会执行，len(via)==1 就是第一次跳进入。选择是否跳
 			if len(via) >= rp.RedirectCount {
 				return http.ErrUseLastResponse //返回err就是，不跳

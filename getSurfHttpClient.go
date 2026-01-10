@@ -1,21 +1,21 @@
 package gspider
 
 import (
-    "bufio"
-    "context"
-    "crypto/tls"
-    "encoding/base64"
-    "fmt"
-    "net"
-    "net/http"
-    "net/url"
-    "os"
-    "strings"
-    "time"
+	"bufio"
+	"context"
+	"crypto/tls"
+	"encoding/base64"
+	"fmt"
+	"net"
+	"net/http"
+	"net/url"
+	"os"
+	"strings"
+	"time"
 
-    "github.com/enetx/surf"
-    "golang.org/x/net/proxy"
-    enhttp "github.com/enetx/http"
+	enhttp "github.com/enetx/http"
+	"github.com/enetx/surf"
+	"golang.org/x/net/proxy"
 )
 
 // —— Surf 枚举类型：更稳妥的系统与浏览器版本设置 ——
@@ -137,18 +137,18 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 		b = imp.Chrome()
 	}
 
-    // 指纹版本（JA3/JA4）：始终启用 JA 指纹设置
-    ja := b.JA()
-    switch req.surfBrowserProfile {
+	// 指纹版本（JA3/JA4）：始终启用 JA 指纹设置
+	ja := b.JA()
+	switch req.surfBrowserProfile {
 	// —— Chrome 家族 ——
-    case SurfBrowserChromeStable:
-        b = ja.Chrome()
-    case SurfBrowserChrome58:
-        b = ja.Chrome58()
-    case SurfBrowserChrome62:
-        b = ja.Chrome62()
-    case SurfBrowserChrome70:
-        b = ja.Chrome70()
+	case SurfBrowserChromeStable:
+		b = ja.Chrome()
+	case SurfBrowserChrome58:
+		b = ja.Chrome58()
+	case SurfBrowserChrome62:
+		b = ja.Chrome62()
+	case SurfBrowserChrome70:
+		b = ja.Chrome70()
 	case SurfBrowserChrome72:
 		b = ja.Chrome72()
 	case SurfBrowserChrome83:
@@ -163,22 +163,22 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 		b = ja.Chrome102()
 	case SurfBrowserChrome106:
 		b = ja.Chrome106()
-    case SurfBrowserChrome142:
-        b = ja.Chrome142()
+	case SurfBrowserChrome142:
+		b = ja.Chrome142()
 	case SurfBrowserChrome120:
 		b = ja.Chrome120()
 	case SurfBrowserChrome120PQ:
 		b = ja.Chrome120PQ()
-	// —— Edge（按 Chrome 家族处理） ——
-    case SurfBrowserEdgeStable:
-        b = ja.Edge()
+		// —— Edge（按 Chrome 家族处理） ——
+	case SurfBrowserEdgeStable:
+		b = ja.Edge()
 	case SurfBrowserEdge85:
 		b = ja.Edge85()
 	case SurfBrowserEdge106:
 		b = ja.Edge106()
-	// —— Firefox 家族 ——
-    case SurfBrowserFirefoxStable:
-        b = ja.Firefox()
+		// —— Firefox 家族 ——
+	case SurfBrowserFirefoxStable:
+		b = ja.Firefox()
 	case SurfBrowserFirefox55:
 		b = ja.Firefox55()
 	case SurfBrowserFirefox56:
@@ -201,16 +201,16 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 		b = ja.Firefox144()
 	case SurfBrowserFirefoxPrivate144:
 		b = ja.FirefoxPrivate144()
-	// —— Tor ——
-    case SurfBrowserTor:
-        b = ja.Tor()
+		// —— Tor ——
+	case SurfBrowserTor:
+		b = ja.Tor()
 	case SurfBrowserTorPrivate:
 		b = ja.TorPrivate()
-	// —— iOS/Safari 家族 ——
-    case SurfBrowserSafari:
-        b = ja.Safari()
-    case SurfBrowserIOS:
-        b = ja.IOS()
+		// —— iOS/Safari 家族 ——
+	case SurfBrowserSafari:
+		b = ja.Safari()
+	case SurfBrowserIOS:
+		b = ja.IOS()
 	case SurfBrowserIOS11:
 		b = ja.IOS11()
 	case SurfBrowserIOS12:
@@ -219,56 +219,56 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 		b = ja.IOS13()
 	case SurfBrowserIOS14:
 		b = ja.IOS14()
-	// —— Randomized ——
-    case SurfBrowserRandomized:
-        b = ja.Randomized()
+		// —— Randomized ——
+	case SurfBrowserRandomized:
+		b = ja.Randomized()
 	case SurfBrowserRandomizedALPN:
 		b = ja.RandomizedALPN()
 	case SurfBrowserRandomizedNoALPN:
 		b = ja.RandomizedNoALPN()
-	// —— Android OkHttp ——
-    case SurfBrowserAndroid:
-        b = ja.Android()
+		// —— Android OkHttp ——
+	case SurfBrowserAndroid:
+		b = ja.Android()
 	}
 
 	// 保留默认 ALPN 由 Surf 配置，代理场景不再强制 HTTP/1.1
 
-    // 代理映射：优先 SOCKS5，其次显式 HTTP(S) 代理，最后环境代理
-    if len(req.Socks5Address) > 0 {
-        //socks5://user:pass@host:port
-        proxyStr := strings.TrimSpace(req.Socks5Address)
-        b = b.Proxy(proxyStr)
-    } else if len(req.HttpProxyInfo) > 0 {
-        //https://user:pass@host:port
-        proxyStr := strings.TrimSpace(req.HttpProxyInfo)
-        b = b.Proxy(proxyStr)
-        // 若 HTTP 代理包含认证信息，设置 CONNECT 阶段的 Proxy-Authorization 头，提升隧道建立成功率
-        if u, err := url.Parse(proxyStr); err == nil && u != nil && len(u.User.Username()) > 0 {
-            user := u.User.Username()
-            pass, _ := u.User.Password()
-            token := base64.StdEncoding.EncodeToString([]byte(user + ":" + pass))
-            b = b.With(func(client *surf.Client) error {
-                if t, ok := client.GetTransport().(*enhttp.Transport); ok {
-                    if t.ProxyConnectHeader == nil {
-                        t.ProxyConnectHeader = make(enhttp.Header)
-                    }
-                    t.ProxyConnectHeader.Set("Proxy-Authorization", "Basic "+token)
-                }
-                return nil
-            })
-        }
-    } else if req.HttpProxyAuto {
-        var envProxy string
-        for _, key := range []string{"HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"} {
-            if val := os.Getenv(key); len(strings.TrimSpace(val)) > 0 {
-                envProxy = strings.TrimSpace(val)
-                break
-            }
-        }
-        if len(envProxy) > 0 {
-            b = b.Proxy(envProxy)
-        }
-    }
+	// 代理映射：优先 SOCKS5，其次显式 HTTP(S) 代理，最后环境代理
+	if len(req.Socks5Address) > 0 {
+		//socks5://user:pass@host:port
+		proxyStr := strings.TrimSpace(req.Socks5Address)
+		b = b.Proxy(proxyStr)
+	} else if len(req.HttpProxyInfo) > 0 {
+		//https://user:pass@host:port
+		proxyStr := strings.TrimSpace(req.HttpProxyInfo)
+		b = b.Proxy(proxyStr)
+		// 若 HTTP 代理包含认证信息，设置 CONNECT 阶段的 Proxy-Authorization 头，提升隧道建立成功率
+		if u, err := url.Parse(proxyStr); err == nil && u != nil && len(u.User.Username()) > 0 {
+			user := u.User.Username()
+			pass, _ := u.User.Password()
+			token := base64.StdEncoding.EncodeToString([]byte(user + ":" + pass))
+			b = b.With(func(client *surf.Client) error {
+				if t, ok := client.GetTransport().(*enhttp.Transport); ok {
+					if t.ProxyConnectHeader == nil {
+						t.ProxyConnectHeader = make(enhttp.Header)
+					}
+					t.ProxyConnectHeader.Set("Proxy-Authorization", "Basic "+token)
+				}
+				return nil
+			})
+		}
+	} else if req.HttpProxyAuto {
+		var envProxy string
+		for _, key := range []string{"HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"} {
+			if val := os.Getenv(key); len(strings.TrimSpace(val)) > 0 {
+				envProxy = strings.TrimSpace(val)
+				break
+			}
+		}
+		if len(envProxy) > 0 {
+			b = b.Proxy(envProxy)
+		}
+	}
 	client := b.Build()
 	httpClient = client.Std()
 	// 尝试应用 mTLS/证书配置到标准客户端（若底层为 *http.Transport）
@@ -354,10 +354,10 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 			if len(proxyStr) > 0 {
 				u, err := url.Parse(proxyStr)
 				if err == nil && u != nil && strings.HasPrefix(strings.ToLower(u.Scheme), "http") {
-				if req.debug {
-					Log.Printf("debug: http proxy parsed scheme=%s host=%s", u.Scheme, u.Host)
-				}
-				// HTTP/HTTPS 代理：执行 CONNECT
+					if req.debug {
+						Log.Printf("debug: http proxy parsed scheme=%s host=%s", u.Scheme, u.Host)
+					}
+					// HTTP/HTTPS 代理：执行 CONNECT
 					conn, err := baseDialer.DialContext(ctx, network, u.Host)
 					if err != nil {
 						if req.debug {
@@ -400,23 +400,23 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 						if req.debug {
 							Log.Printf("debug: CONNECT status=%s", strings.TrimSpace(statusLine))
 						}
-                        if !strings.Contains(statusLine, "200") {
-                            if req.debug {
-                                Log.Printf("debug: CONNECT not 200, fallback to HTTP/1.0")
-                            }
-                            _, err = fmt.Fprintf(conn, "CONNECT %s HTTP/1.0\r\nHost: %s\r\n%s\r\n\r\n", addr, headerHost, auth)
-                            if err != nil {
-                                return nil, nil, fmt.Errorf("proxy CONNECT failed: %s", strings.TrimSpace(statusLine))
-                            }
-                            br = bufio.NewReader(conn)
-                            statusLine, err = br.ReadString('\n')
-                            if req.debug {
-                                Log.Printf("debug: CONNECT(1.0) status=%s err=%v", strings.TrimSpace(statusLine), err)
-                            }
-                            if err != nil || !strings.Contains(statusLine, "200") {
-                                return nil, nil, fmt.Errorf("proxy CONNECT failed: %s", strings.TrimSpace(statusLine))
-                            }
-                        }
+						if !strings.Contains(statusLine, "200") {
+							if req.debug {
+								Log.Printf("debug: CONNECT not 200, fallback to HTTP/1.0")
+							}
+							_, err = fmt.Fprintf(conn, "CONNECT %s HTTP/1.0\r\nHost: %s\r\n%s\r\n\r\n", addr, headerHost, auth)
+							if err != nil {
+								return nil, nil, fmt.Errorf("proxy CONNECT failed: %s", strings.TrimSpace(statusLine))
+							}
+							br = bufio.NewReader(conn)
+							statusLine, err = br.ReadString('\n')
+							if req.debug {
+								Log.Printf("debug: CONNECT(1.0) status=%s err=%v", strings.TrimSpace(statusLine), err)
+							}
+							if err != nil || !strings.Contains(statusLine, "200") {
+								return nil, nil, fmt.Errorf("proxy CONNECT failed: %s", strings.TrimSpace(statusLine))
+							}
+						}
 						for {
 							line, err := br.ReadString('\n')
 							if err != nil {
@@ -461,30 +461,18 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 				if u != nil && len(u.Host) > 0 {
 					host = u.Host
 				}
-					dialer, err := proxy.SOCKS5("tcp", host, socksAuth, baseDialer)
+				dialer, err := proxy.SOCKS5("tcp", host, socksAuth, baseDialer)
+				if err != nil {
+					if req.debug {
+						Log.Printf("debug: socks5 dialer create host=%s err=%v", host, err)
+					}
+					return nil, err
+				}
+				if ctxDialer, ok := dialer.(proxy.ContextDialer); ok {
+					conn, err := ctxDialer.DialContext(ctx, network, addr)
 					if err != nil {
 						if req.debug {
-							Log.Printf("debug: socks5 dialer create host=%s err=%v", host, err)
-						}
-						return nil, err
-					}
-					if ctxDialer, ok := dialer.(proxy.ContextDialer); ok {
-						conn, err := ctxDialer.DialContext(ctx, network, addr)
-						if err != nil {
-							if req.debug {
-								Log.Printf("debug: socks5 DialContext err=%v", err)
-							}
-							return nil, err
-						}
-						if rp.TcpDelay > 0 {
-							time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
-						}
-						return conn, nil
-					}
-					conn, err := dialer.Dial(network, addr)
-					if err != nil {
-						if req.debug {
-							Log.Printf("debug: socks5 Dial err=%v", err)
+							Log.Printf("debug: socks5 DialContext err=%v", err)
 						}
 						return nil, err
 					}
@@ -493,6 +481,18 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 					}
 					return conn, nil
 				}
+				conn, err := dialer.Dial(network, addr)
+				if err != nil {
+					if req.debug {
+						Log.Printf("debug: socks5 Dial err=%v", err)
+					}
+					return nil, err
+				}
+				if rp.TcpDelay > 0 {
+					time.Sleep(time.Duration(rp.TcpDelay) * time.Second)
+				}
+				return conn, nil
+			}
 
 			// 直连
 			conn, err := baseDialer.DialContext(ctx, network, addr)
