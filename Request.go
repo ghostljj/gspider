@@ -162,7 +162,7 @@ func (req *Request) GetSurfUserAgent() string {
 	switch req.surfBrowserProfile {
 	case SurfBrowserFirefoxStable, SurfBrowserFirefox55, SurfBrowserFirefox56, SurfBrowserFirefox63, SurfBrowserFirefox65,
 		SurfBrowserFirefox99, SurfBrowserFirefox102, SurfBrowserFirefox105, SurfBrowserFirefox120,
-		SurfBrowserFirefox141, SurfBrowserFirefox146, SurfBrowserFirefoxPrivate146:
+		SurfBrowserFirefox141, SurfBrowserFirefox147, SurfBrowserFirefoxPrivate147:
 		return uaFirefox(osKind)
 	case SurfBrowserTor, SurfBrowserTorPrivate:
 		return uaTor(osKind)
@@ -205,8 +205,8 @@ func (req *Request) GetSurfUserAgentByProfileVersion() string {
 		family, major = "firefox", 120
 	case SurfBrowserFirefox141:
 		family, major = "firefox", 141
-	case SurfBrowserFirefox146, SurfBrowserFirefoxStable, SurfBrowserFirefoxPrivate146:
-		family, major = "firefox", 146
+	case SurfBrowserFirefox147, SurfBrowserFirefoxStable, SurfBrowserFirefoxPrivate147:
+		family, major = "firefox", 147
 	// tor（按 firefox 家族，版本固定 128）
 	case SurfBrowserTor, SurfBrowserTorPrivate:
 		family, major = "tor", 128
@@ -233,8 +233,8 @@ func (req *Request) GetSurfUserAgentByProfileVersion() string {
 		family, major = "chrome", 106
 	case SurfBrowserChrome120, SurfBrowserChrome120PQ:
 		family, major = "chrome", 120
-	case SurfBrowserChrome143:
-		family, major = "chrome", 143
+	case SurfBrowserChrome145:
+		family, major = "chrome", 145
 	case SurfBrowserEdge85:
 		family, major = "chrome", 85
 	case SurfBrowserEdge106:

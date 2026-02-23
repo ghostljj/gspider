@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/enetx/g"
 	enhttp "github.com/enetx/http"
 	"github.com/enetx/surf"
 	"golang.org/x/net/proxy"
@@ -52,7 +53,7 @@ const (
 	SurfBrowserChrome106
 	SurfBrowserChrome120
 	SurfBrowserChrome120PQ
-	SurfBrowserChrome143
+	SurfBrowserChrome145
 	// Edge（按 Chrome 家族处理）
 	SurfBrowserEdgeStable
 	SurfBrowserEdge85
@@ -68,8 +69,8 @@ const (
 	SurfBrowserFirefox105
 	SurfBrowserFirefox120
 	SurfBrowserFirefox141
-	SurfBrowserFirefox146
-	SurfBrowserFirefoxPrivate146
+	SurfBrowserFirefox147
+	SurfBrowserFirefoxPrivate147
 	// Tor（按 Firefox 家族处理）
 	SurfBrowserTor
 	SurfBrowserTorPrivate
@@ -121,7 +122,7 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 	case SurfBrowserDefault,
 		SurfBrowserChromeStable, SurfBrowserChrome58, SurfBrowserChrome62, SurfBrowserChrome70, SurfBrowserChrome72,
 		SurfBrowserChrome83, SurfBrowserChrome87, SurfBrowserChrome96, SurfBrowserChrome100, SurfBrowserChrome102,
-		SurfBrowserChrome106, SurfBrowserChrome120, SurfBrowserChrome120PQ, SurfBrowserChrome143,
+		SurfBrowserChrome106, SurfBrowserChrome120, SurfBrowserChrome120PQ, SurfBrowserChrome145,
 		SurfBrowserEdgeStable, SurfBrowserEdge85, SurfBrowserEdge106,
 		SurfBrowserRandomized, SurfBrowserRandomizedALPN, SurfBrowserRandomizedNoALPN,
 		SurfBrowserSafari, SurfBrowserIOS, SurfBrowserIOS11, SurfBrowserIOS12, SurfBrowserIOS13, SurfBrowserIOS14,
@@ -130,7 +131,7 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 	// Firefox 家族（含 Tor）
 	case SurfBrowserFirefoxStable, SurfBrowserFirefox55, SurfBrowserFirefox56, SurfBrowserFirefox63, SurfBrowserFirefox65,
 		SurfBrowserFirefox99, SurfBrowserFirefox102, SurfBrowserFirefox105, SurfBrowserFirefox120,
-		SurfBrowserFirefox141, SurfBrowserFirefox146, SurfBrowserFirefoxPrivate146,
+		SurfBrowserFirefox141, SurfBrowserFirefox147, SurfBrowserFirefoxPrivate147,
 		SurfBrowserTor, SurfBrowserTorPrivate:
 		b = imp.Firefox()
 	default:
@@ -163,8 +164,8 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 		b = ja.Chrome102()
 	case SurfBrowserChrome106:
 		b = ja.Chrome106()
-	case SurfBrowserChrome143:
-		b = ja.Chrome143()
+	case SurfBrowserChrome145:
+		b = ja.Chrome145()
 	case SurfBrowserChrome120:
 		b = ja.Chrome120()
 	case SurfBrowserChrome120PQ:
@@ -197,10 +198,10 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 		b = ja.Firefox120()
 	case SurfBrowserFirefox141:
 		b = ja.Firefox141()
-	case SurfBrowserFirefox146:
-		b = ja.Firefox146()
-	case SurfBrowserFirefoxPrivate146:
-		b = ja.FirefoxPrivate146()
+	case SurfBrowserFirefox147:
+		b = ja.Firefox147()
+	case SurfBrowserFirefoxPrivate147:
+		b = ja.FirefoxPrivate147()
 		// —— Tor ——
 	case SurfBrowserTor:
 		b = ja.Firefox()
@@ -237,11 +238,11 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 	if len(req.Socks5Address) > 0 {
 		//socks5://user:pass@host:port
 		proxyStr := strings.TrimSpace(req.Socks5Address)
-		b = b.Proxy(proxyStr)
+		b = b.Proxy(g.String(proxyStr))
 	} else if len(req.HttpProxyInfo) > 0 {
 		//https://user:pass@host:port
 		proxyStr := strings.TrimSpace(req.HttpProxyInfo)
-		b = b.Proxy(proxyStr)
+		b = b.Proxy(g.String(proxyStr))
 		// 若 HTTP 代理包含认证信息，设置 CONNECT 阶段的 Proxy-Authorization 头，提升隧道建立成功率
 		if u, err := url.Parse(proxyStr); err == nil && u != nil && len(u.User.Username()) > 0 {
 			user := u.User.Username()
@@ -266,11 +267,15 @@ func (req *Request) getSurfHttpClient(rp *RequestOptions, res *Response) *http.C
 			}
 		}
 		if len(envProxy) > 0 {
-			b = b.Proxy(envProxy)
+			b = b.Proxy(g.String(envProxy))
 		}
 	}
-	client := b.Build()
-	httpClient = client.Std()
+	clientResult := b.Build()
+	if clientResult.IsErr() {
+		res.err = clientResult.Err()
+		return nil
+	}
+	httpClient = clientResult.Unwrap().Std()
 	// 尝试应用 mTLS/证书配置到标准客户端（若底层为 *http.Transport）
 	if req.Verify && req.tlsClientConfig != nil {
 		if tr, ok := httpClient.Transport.(*http.Transport); ok {
